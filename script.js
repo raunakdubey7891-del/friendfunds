@@ -9,41 +9,54 @@ if (loans.length === 0) {
     loans = [
         {
             id: 1,
-            borrower: 'john_doe',
+            borrower: 'Nirmal',
             purpose: 'Education Fee',
             amount: 15000,
             term: 12,
             interest: 8,
             status: 'active',
             date: '2023-09-15',
-            monthlyPayment: 1330,
+            monthlyPayment: 1302,
             funded: 8000,
             investors: []
         },
         {
             id: 2,
-            borrower: 'mike_smith',
+            borrower: 'Harsh',
             purpose: 'Vacation',
             amount: 8000,
             term: 6,
             interest: 8,
             status: 'active',
             date: '2023-10-05',
-            monthlyPayment: 1380,
+            monthlyPayment: 1360,
             funded: 3000,
             investors: []
         },
         {
             id: 3,
-            borrower: 'sarah_jones',
+            borrower: 'Mohit',
             purpose: 'Laptop Purchase',
             amount: 25000,
             term: 18,
             interest: 8,
             status: 'active',
             date: '2023-10-20',
-            monthlyPayment: 1530,
+            monthlyPayment: 1484,
             funded: 12000,
+            investors: []
+        },
+        {
+            id: 4,
+            borrower: 'Shubham',
+            purpose: 'Air condition Purchase',
+            amount: 35000,
+            term: 18,
+            interest: 8,
+            status: 'active',
+            date: '2023-10-20',
+            monthlyPayment: 2078,
+            funded: 15000,
             investors: []
         }
     ];
@@ -55,26 +68,34 @@ if (users.length === 0) {
     users = [
         {
             id: 1,
-            username: 'john_doe',
+            username: 'Nirmal',
             password: 'password123',
-            email: 'john@example.com',
-            balance: 50000,
+            email: 'Nirmal@example.com',
+            balance: 1000000,
             rememberMe: false
         },
         {
             id: 2,
-            username: 'mike_smith',
+            username: 'Harsh',
             password: 'password123',
-            email: 'mike@example.com',
-            balance: 75000,
+            email: 'Harsh@example.com',
+            balance: 1000000,
             rememberMe: false
         },
         {
             id: 3,
-            username: 'sarah_jones',
+            username: 'Mohit',
             password: 'password123',
-            email: 'sarah@example.com',
-            balance: 60000,
+            email: 'Mohit@example.com',
+            balance: 1000000,
+            rememberMe: false
+        },
+        {
+            id: 4,
+            username: 'Shubham',
+            password: 'password123',
+            email: 'Shubham@example.com',
+            balance: 1000000,
             rememberMe: false
         }
     ];
@@ -852,4 +873,5 @@ function showInvestmentDetails(investmentId) {
     `;
 
     document.getElementById('loan-detail-modal').style.display = 'flex';
+
 }
