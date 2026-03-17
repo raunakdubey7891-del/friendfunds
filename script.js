@@ -457,7 +457,7 @@ const aadhaarFileName = `${currentUser.id}_${Date.now()}_aadhaar_${uploadedFiles
 
 const { data: aadhaarData, error: aadhaarError } = await supabase
     .storage
-    .from('KYC DOCUMENTS')  // Try with all caps
+    .from('KYC Documents')  // Try with all caps
     .upload(aadhaarFileName, uploadedFiles.aadhaar);
 
 if (aadhaarError) {
