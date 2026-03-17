@@ -416,109 +416,58 @@ document.getElementById('loan-request-form')?.addEventListener('submit', (e) => 
 
 document.getElementById('loan-agreement-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
-    console.log("1️⃣ Form submitted");
     
     if (!currentUser) {
-        console.log("❌ No current user");
         showNotification('Please login first');
         document.getElementById('loan-agreement-modal').style.display = 'none';
         document.getElementById('login-modal').style.display = 'flex';
         return;
     }
-    console.log("✅ Current user:", currentUser.username);
     
     if (!uploadedFiles.aadhaar || !uploadedFiles.undertaking) {
-        console.log("❌ Missing files:", { aadhaar: !!uploadedFiles.aadhaar, undertaking: !!uploadedFiles.undertaking });
         showNotification('Please upload all required documents');
         return;
     }
-    console.log("✅ Files present:", uploadedFiles.aadhaar.name, uploadedFiles.undertaking.name);
     
     if (!document.getElementById('agree-terms').checked) {
-        console.log("❌ Terms not agreed");
         showNotification('Please agree to terms');
         return;
     }
-    console.log("✅ Terms agreed");
     
     showNotification('Uploading documents...');
-    console.log("2️⃣ Starting upload process");
     
     try {
         const purpose = document.getElementById('agreement-purpose').value;
         const amount = parseInt(document.getElementById('agreement-amount').value);
         const term = parseInt(document.getElementById('agreement-term').value);
         const monthlyPayment = parseInt(document.getElementById('agreement-monthly-payment').value);
-        console.log("3️⃣ Loan details:", { purpose, amount, term, monthlyPayment });
         
-        // Upload Aadhaar to Storage
-console.log("Uploading to bucket: KYC DOCUMENTS");
-const aadhaarFileName = `${currentUser.id}_${Date.now()}_aadhaar_${uploadedFiles.aadhaar.name}`;
-
-const { data: aadhaarData, error: aadhaarError } = await supabase
-    .storage
-    .from('KYC Documents')  // Try with all caps
-    .upload(aadhaarFileName, uploadedFiles.aadhaar);
-
-if (aadhaarError) {
-    console.error("Full error object:", aadhaarError);
-    showNotification('Upload error: ' + aadhaarError.message);
-    return;
-}
+        // Convert files to data URLs
+        const aadhaarDataUrl = await readFileAsDataURL(uploadedFiles.aadhaar);
+        const undertakingDataUrl = await readFileAsDataURL(uploadedFiles.undertaking);
         
-        // Get public URL for Aadhaar
-        const { data: aadhaarUrlData } = supabase
-            .storage
-            .from('KYC Documents')
-            .getPublicUrl(aadhaarFileName);
-        console.log("✅ Aadhaar URL:", aadhaarUrlData.publicUrl);
-        
-        // Upload Undertaking to Storage
-        console.log("5️⃣ Uploading Undertaking...");
-        const undertakingFileName = `${currentUser.id}_${Date.now()}_undertaking_${uploadedFiles.undertaking.name}`;
-        const { data: undertakingData, error: undertakingError } = await supabase
-            .storage
-            .from('KYC Documents')
-            .upload(undertakingFileName, uploadedFiles.undertaking);
-        
-        if (undertakingError) {
-            console.log("❌ Undertaking upload error:", undertakingError);
-            throw undertakingError;
-        }
-        console.log("✅ Undertaking uploaded:", undertakingFileName);
-        
-        // Get public URL for Undertaking
-        const { data: undertakingUrlData } = supabase
-            .storage
-            .from('KYC Documents')
-            .getPublicUrl(undertakingFileName);
-        console.log("✅ Undertaking URL:", undertakingUrlData.publicUrl);
-        
-        // Create document record
         const documentRecord = {
             aadhaar: {
                 name: uploadedFiles.aadhaar.name,
                 type: uploadedFiles.aadhaar.type,
                 size: uploadedFiles.aadhaar.size,
-                storagePath: aadhaarFileName,
-                publicUrl: aadhaarUrlData.publicUrl,
+                dataUrl: aadhaarDataUrl,
+                viewUrl: aadhaarDataUrl,
                 uploadedAt: new Date().toISOString()
             },
             undertaking: {
                 name: uploadedFiles.undertaking.name,
                 type: uploadedFiles.undertaking.type,
                 size: uploadedFiles.undertaking.size,
-                storagePath: undertakingFileName,
-                publicUrl: undertakingUrlData.publicUrl,
+                dataUrl: undertakingDataUrl,
+                viewUrl: undertakingDataUrl,
                 uploadedAt: new Date().toISOString()
             },
             agreementAccepted: true,
             agreementDate: new Date().toISOString()
         };
-        console.log("6️⃣ Document record created");
         
         // Create loan in database
-        console.log("7️⃣ Creating loan in database...");
         const { data, error } = await supabase
             .from('loans')
             .insert([
@@ -542,81 +491,68 @@ if (aadhaarError) {
             .select()
             .single();
         
-        if (error) {
-            console.log("❌ Database insert error:", error);
-            throw error;
-        }
-        console.log("✅ Loan created with ID:", data.id);
-        
-        // Update user's KYC status
-        console.log("8️⃣ Updating user KYC...");
-        const updatedDocs = [...(currentUser.documents || []), {
-            type: 'loan_documents',
-            loanId: data.id,
-            date: new Date().toISOString(),
-            documents: {
-                aadhaar: documentRecord.aadhaar,
-                undertaking: documentRecord.undertaking
+        if (data) {
+            // Update user's KYC status
+            const updatedDocs = [...(currentUser.documents || []), {
+                type: 'loan_documents',
+                loanId: data.id,
+                date: new Date().toISOString(),
+                documents: {
+                    aadhaar: documentRecord.aadhaar,
+                    undertaking: documentRecord.undertaking
+                }
+            }];
+            
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({ 
+                    kyc_status: 'verified',
+                    documents: updatedDocs
+                })
+                .eq('id', currentUser.id);
+            
+            if (!updateError) {
+                currentUser.kyc_status = 'verified';
+                currentUser.documents = updatedDocs;
             }
-        }];
-        
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({ 
-                kyc_status: 'verified',
-                documents: updatedDocs
-            })
-            .eq('id', currentUser.id);
-        
-        if (updateError) {
-            console.log("⚠️ User update error (non-critical):", updateError);
-        } else {
-            currentUser.kyc_status = 'verified';
-            currentUser.documents = updatedDocs;
-            console.log("✅ User KYC updated");
+            
+            document.getElementById('loan-agreement-modal').style.display = 'none';
+            
+            // Update success modal
+            const successSummary = document.getElementById('success-document-summary');
+            if (successSummary) {
+                successSummary.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-id-card" style="color: #3498db; width: 20px;"></i>
+                        <span style="font-size: 0.9rem;">Aadhaar: <strong>${uploadedFiles.aadhaar.name}</strong></span>
+                        <button onclick="openDocumentInBrowser('aadhaar', ${data.id})" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-file-pdf" style="color: #e74c3c; width: 20px;"></i>
+                        <span style="font-size: 0.9rem;">Undertaking: <strong>${uploadedFiles.undertaking.name}</strong></span>
+                        <button onclick="openDocumentInBrowser('undertaking', ${data.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-check-circle" style="color: #2ecc71; width: 20px;"></i>
+                        <span style="font-size: 0.9rem;">Documents submitted successfully</span>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('upload-success-modal').style.display = 'flex';
+            
+            showNotification('Loan request created with documents successfully!');
         }
-        
-        // Close agreement modal
-        document.getElementById('loan-agreement-modal').style.display = 'none';
-        console.log("9️⃣ Modal closed");
-        
-        // Update success modal
-        console.log("🔟 Showing success modal");
-        const successSummary = document.getElementById('success-document-summary');
-        if (successSummary) {
-            successSummary.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                    <i class="fas fa-id-card" style="color: #3498db; width: 20px;"></i>
-                    <span style="font-size: 0.9rem;">Aadhaar: <strong>${uploadedFiles.aadhaar.name}</strong></span>
-                    <button onclick="openDocumentInBrowser('aadhaar', ${data.id})" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
-                        <i class="fas fa-external-link-alt"></i> View
-                    </button>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                    <i class="fas fa-file-pdf" style="color: #e74c3c; width: 20px;"></i>
-                    <span style="font-size: 0.9rem;">Undertaking: <strong>${uploadedFiles.undertaking.name}</strong></span>
-                    <button onclick="openDocumentInBrowser('undertaking', ${data.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
-                        <i class="fas fa-external-link-alt"></i> View
-                    </button>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-check-circle" style="color: #2ecc71; width: 20px;"></i>
-                    <span style="font-size: 0.9rem;">Documents submitted successfully</span>
-                </div>
-            `;
-        }
-        
-        document.getElementById('upload-success-modal').style.display = 'flex';
-        console.log("✅ Success modal displayed");
-        
-        showNotification('Loan request created with documents successfully!');
-        console.log("🏁 Process complete!");
-        
     } catch (error) {
-        console.error("❌❌❌ ERROR CAUGHT:", error);
-        showNotification('Error: ' + error.message);
+        console.error('Error:', error);
+        showNotification('Error creating loan');
     }
 });
+
 // Helper to read file as data URL
 function readFileAsDataURL(file) {
     return new Promise((resolve, reject) => {
@@ -779,6 +715,7 @@ function createDocumentUrl(file, type) {
     return URL.createObjectURL(blob);
 }
 
+// Open document in new browser tab
 window.openDocumentInBrowser = function (docType, loanId) {
     const loan = loans.find(l => l.id == loanId);
     if (!loan || !loan.documents) return;
@@ -786,13 +723,13 @@ window.openDocumentInBrowser = function (docType, loanId) {
     const documentData = loan.documents[docType];
     if (!documentData) return;
     
-    // Use the public URL from storage
-    if (documentData.publicUrl) {
-        window.open(documentData.publicUrl, '_blank');
+    if (documentData.dataUrl) {
+        window.open(documentData.dataUrl, '_blank');
     } else {
         showNotification('Document URL not available');
     }
 };
+
 // ============================================
 // FILE UPLOAD HANDLING
 // ============================================
