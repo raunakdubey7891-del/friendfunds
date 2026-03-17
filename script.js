@@ -434,39 +434,60 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         return;
     }
     
-    showNotification('Uploading documents...');
+showNotification('Uploading documents...');
+
+try {
+    // Upload Aadhaar to Storage
+    const aadhaarFileName = `${currentUser.id}_${Date.now()}_aadhaar_${uploadedFiles.aadhaar.name}`;
+    const { data: aadhaarData, error: aadhaarError } = await supabase
+        .storage
+        .from('KYC Documents')  // Use your bucket name
+        .upload(aadhaarFileName, uploadedFiles.aadhaar);
     
-    try {
-        const purpose = document.getElementById('agreement-purpose').value;
-        const amount = parseInt(document.getElementById('agreement-amount').value);
-        const term = parseInt(document.getElementById('agreement-term').value);
-        const monthlyPayment = parseInt(document.getElementById('agreement-monthly-payment').value);
-        
-        // Convert files to data URLs
-        const aadhaarDataUrl = await readFileAsDataURL(uploadedFiles.aadhaar);
-        const undertakingDataUrl = await readFileAsDataURL(uploadedFiles.undertaking);
-        
-        const documentRecord = {
-            aadhaar: {
-                name: uploadedFiles.aadhaar.name,
-                type: uploadedFiles.aadhaar.type,
-                size: uploadedFiles.aadhaar.size,
-                dataUrl: aadhaarDataUrl,
-                viewUrl: aadhaarDataUrl,
-                uploadedAt: new Date().toISOString()
-            },
-            undertaking: {
-                name: uploadedFiles.undertaking.name,
-                type: uploadedFiles.undertaking.type,
-                size: uploadedFiles.undertaking.size,
-                dataUrl: undertakingDataUrl,
-                viewUrl: undertakingDataUrl,
-                uploadedAt: new Date().toISOString()
-            },
-            agreementAccepted: true,
-            agreementDate: new Date().toISOString()
-        };
-        
+    if (aadhaarError) throw aadhaarError;
+    
+    // Get public URL for Aadhaar
+    const { data: aadhaarUrlData } = supabase
+        .storage
+        .from('KYC Documents')
+        .getPublicUrl(aadhaarFileName);
+    
+    // Upload Undertaking to Storage
+    const undertakingFileName = `${currentUser.id}_${Date.now()}_undertaking_${uploadedFiles.undertaking.name}`;
+    const { data: undertakingData, error: undertakingError } = await supabase
+        .storage
+        .from('KYC Documents')
+        .upload(undertakingFileName, uploadedFiles.undertaking);
+    
+    if (undertakingError) throw undertakingError;
+    
+    // Get public URL for Undertaking
+    const { data: undertakingUrlData } = supabase
+        .storage
+        .from('KYC Documents')
+        .getPublicUrl(undertakingFileName);
+    
+    // Create document record with URLs (not data URLs)
+    const documentRecord = {
+        aadhaar: {
+            name: uploadedFiles.aadhaar.name,
+            type: uploadedFiles.aadhaar.type,
+            size: uploadedFiles.aadhaar.size,
+            storagePath: aadhaarFileName,
+            publicUrl: aadhaarUrlData.publicUrl,  // This is the key!
+            uploadedAt: new Date().toISOString()
+        },
+        undertaking: {
+            name: uploadedFiles.undertaking.name,
+            type: uploadedFiles.undertaking.type,
+            size: uploadedFiles.undertaking.size,
+            storagePath: undertakingFileName,
+            publicUrl: undertakingUrlData.publicUrl,  // This is the key!
+            uploadedAt: new Date().toISOString()
+        },
+        agreementAccepted: true,
+        agreementDate: new Date().toISOString()
+    };  
         // Create loan in database
         const { data, error } = await supabase
             .from('loans')
@@ -715,7 +736,6 @@ function createDocumentUrl(file, type) {
     return URL.createObjectURL(blob);
 }
 
-// Open document in new browser tab
 window.openDocumentInBrowser = function (docType, loanId) {
     const loan = loans.find(l => l.id == loanId);
     if (!loan || !loan.documents) return;
@@ -723,13 +743,13 @@ window.openDocumentInBrowser = function (docType, loanId) {
     const documentData = loan.documents[docType];
     if (!documentData) return;
     
-    if (documentData.dataUrl) {
-        window.open(documentData.dataUrl, '_blank');
+    // Use the public URL from storage
+    if (documentData.publicUrl) {
+        window.open(documentData.publicUrl, '_blank');
     } else {
         showNotification('Document URL not available');
     }
 };
-
 // ============================================
 // FILE UPLOAD HANDLING
 // ============================================
