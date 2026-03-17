@@ -452,18 +452,19 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         console.log("3️⃣ Loan details:", { purpose, amount, term, monthlyPayment });
         
         // Upload Aadhaar to Storage
-        console.log("4️⃣ Uploading Aadhaar...");
-        const aadhaarFileName = `${currentUser.id}_${Date.now()}_aadhaar_${uploadedFiles.aadhaar.name}`;
-        const { data: aadhaarData, error: aadhaarError } = await supabase
-            .storage
-            .from('KYC Documents')
-            .upload(aadhaarFileName, uploadedFiles.aadhaar);
-        
-        if (aadhaarError) {
-            console.log("❌ Aadhaar upload error:", aadhaarError);
-            throw aadhaarError;
-        }
-        console.log("✅ Aadhaar uploaded:", aadhaarFileName);
+console.log("Uploading to bucket: KYC DOCUMENTS");
+const aadhaarFileName = `${currentUser.id}_${Date.now()}_aadhaar_${uploadedFiles.aadhaar.name}`;
+
+const { data: aadhaarData, error: aadhaarError } = await supabase
+    .storage
+    .from('KYC DOCUMENTS')  // Try with all caps
+    .upload(aadhaarFileName, uploadedFiles.aadhaar);
+
+if (aadhaarError) {
+    console.error("Full error object:", aadhaarError);
+    showNotification('Upload error: ' + aadhaarError.message);
+    return;
+}
         
         // Get public URL for Aadhaar
         const { data: aadhaarUrlData } = supabase
