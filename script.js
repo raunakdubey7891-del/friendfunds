@@ -92,6 +92,10 @@ async function loadUsers() {
         users = data;
     }
 }
+// After loan is created, force a refresh
+setTimeout(() => {
+    loadLoansRealtime();
+}, 500);
 
 // ============================================
 // SAMPLE DATA INITIALIZATION
