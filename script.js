@@ -29,7 +29,6 @@ const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE'; // Replace with your Razorpay 
 // REAL-TIME DATA LOADING FROM SUPABASE
 // ============================================
 
-// Load loans in real-time
 async function loadLoansRealtime() {
     if (!window.supabase) {
         console.log("Waiting for Supabase...");
@@ -37,6 +36,7 @@ async function loadLoansRealtime() {
         return;
     }
     
+    // Load loans
     const { data, error } = await supabase
         .from('loans')
         .select('*')
@@ -45,7 +45,6 @@ async function loadLoansRealtime() {
     if (data) {
         loans = data;
         console.log("📊 Loans updated:", loans.length);
-        
         renderLoanRequests();
         renderInvestmentOpportunities();
         if (currentUser) {
@@ -54,19 +53,18 @@ async function loadLoansRealtime() {
         }
     }
 
-    // Subscribe to real-time changes
+    // REAL-TIME SUBSCRIPTION - This is what you need
     supabase
         .channel('loans-channel')
         .on('postgres_changes', 
             { event: '*', schema: 'public', table: 'loans' },
             (payload) => {
-                console.log('Loans updated:', payload);
-                loadLoansRealtime();
+                console.log('🔄 Real-time update:', payload);
+                loadLoansRealtime(); // Reload when changes happen
             }
         )
         .subscribe();
 }
-
 // Load investments in real-time
 async function loadInvestmentsRealtime() {
     const { data, error } = await supabase
