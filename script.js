@@ -517,10 +517,9 @@ document.getElementById('loan-request-form')?.addEventListener('submit', (e) => 
     // Show agreement modal
     document.getElementById('loan-agreement-modal').style.display = 'flex';
 });
-
 // ============================================
-// SUBMIT LOAN AGREEMENT WITH FILE UPLOAD
-// (Using Supabase Storage)
+// SUBMIT LOAN AGREEMENT WITH DOCUMENT UPLOAD
+// (Fixed for your table structure)
 // ============================================
 
 document.getElementById('loan-agreement-form')?.addEventListener('submit', async (e) => {
@@ -553,31 +552,35 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         const term = parseInt(document.getElementById('agreement-term').value);
         const monthlyPayment = parseInt(document.getElementById('agreement-monthly-payment').value);
         
-        // Step 1: Upload Aadhaar to Supabase Storage
+        // Upload files to Supabase Storage first
         const aadhaarFile = uploadedFiles.aadhaar;
-        const aadhaarData = await uploadDocument(
-            aadhaarFile, 
-            currentUser.id || currentUser.username, 
-            'aadhaar',
-            Date.now()
-        );
-        
-        // Step 2: Upload Undertaking to Supabase Storage
         const undertakingFile = uploadedFiles.undertaking;
-        const undertakingData = await uploadDocument(
-            undertakingFile, 
-            currentUser.id || currentUser.username, 
-            'undertaking',
-            Date.now()
-        );
         
-        // Step 3: Create loan in database (without documents column)
-        const { data: loanData, error: loanError } = await supabase
+        // Create document record as JSONB (matches your documents column type)
+        const documentRecord = {
+            aadhaar: {
+                name: aadhaarFile.name,
+                type: aadhaarFile.type,
+                size: aadhaarFile.size,
+                uploadedAt: new Date().toISOString()
+            },
+            undertaking: {
+                name: undertakingFile.name,
+                type: undertakingFile.type,
+                size: undertakingFile.size,
+                uploadedAt: new Date().toISOString()
+            },
+            agreementAccepted: true,
+            agreementDate: new Date().toISOString()
+        };
+        
+        // Create loan in database - matching ALL your columns
+        const { data, error } = await supabase
             .from('loans')
             .insert([
                 {
                     borrower: currentUser.username,
-                    borrower_id: currentUser.id,
+                    borrower_id: currentUser.id,  // You have this column
                     purpose: purpose,
                     amount: amount,
                     term: term,
@@ -586,107 +589,73 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
                     date: new Date().toISOString().split('T')[0],
                     monthly_payment: monthlyPayment,
                     funded: 0,
-                    investors: [],
-                    agreement_accepted: true,
-                    agreement_date: new Date().toISOString(),
-                    created_at: new Date().toISOString()
+                    investors: [],  // Empty array for investors
+                    documents: documentRecord,  // Store as JSONB
+                    agreement_accepted: true,  // You have this column
+                    agreement_date: new Date().toISOString(),  // You have this column
+                    created_at: new Date().toISOString()  // You have this column
                 }
             ])
             .select()
             .single();
         
-        if (loanError) throw loanError;
-        
-        // Step 4: Save document records in loan_documents table
-        const documentsToInsert = [
-            {
-                loan_id: loanData.id,
-                user_id: currentUser.id,
-                document_type: 'aadhaar',
-                file_name: aadhaarFile.name,
-                file_size: aadhaarFile.size,
-                file_type: aadhaarFile.type,
-                storage_path: aadhaarData.path,
-                public_url: aadhaarData.url,
-                uploaded_at: new Date().toISOString()
-            },
-            {
-                loan_id: loanData.id,
-                user_id: currentUser.id,
-                document_type: 'undertaking',
-                file_name: undertakingFile.name,
-                file_size: undertakingFile.size,
-                file_type: undertakingFile.type,
-                storage_path: undertakingData.path,
-                public_url: undertakingData.url,
-                uploaded_at: new Date().toISOString()
-            }
-        ];
-        
-        const { error: docsError } = await supabase
-            .from('loan_documents')
-            .insert(documentsToInsert);
-        
-        if (docsError) throw docsError;
-        
-        // Step 5: Update user's KYC status
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({ 
-                kyc_status: 'verified'
-            })
-            .eq('id', currentUser.id);
-        
-        if (updateError) throw updateError;
-        
-        // Update current user
-        currentUser.kyc_status = 'verified';
-        
-        // Close agreement modal
-        document.getElementById('loan-agreement-modal').style.display = 'none';
-        
-        // Update success modal with document links
-        const successSummary = document.getElementById('success-document-summary');
-        if (successSummary) {
-            successSummary.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
-                    <i class="fas fa-id-card" style="color: #3498db; font-size: 1.5rem;"></i>
-                    <div style="flex: 1; text-align: left;">
-                        <div style="font-weight: 500; font-size: 0.9rem;">Aadhaar Card</div>
-                        <div style="font-size: 0.8rem; color: #666;">${aadhaarFile.name}</div>
-                    </div>
-                    <a href="${aadhaarData.url}" target="_blank" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">
-                        <i class="fas fa-external-link-alt"></i> View
-                    </a>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
-                    <i class="fas fa-file-pdf" style="color: #e74c3c; font-size: 1.5rem;"></i>
-                    <div style="flex: 1; text-align: left;">
-                        <div style="font-weight: 500; font-size: 0.9rem;">Signed Undertaking</div>
-                        <div style="font-size: 0.8rem; color: #666;">${undertakingFile.name}</div>
-                    </div>
-                    <a href="${undertakingData.url}" target="_blank" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">
-                        <i class="fas fa-external-link-alt"></i> View
-                    </a>
-                </div>
-                <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #d4edda; border-radius: 8px; color: #155724;">
-                    <i class="fas fa-check-circle" style="font-size: 1.2rem;"></i>
-                    <span style="font-size: 0.9rem;">Documents uploaded successfully! Loan request created.</span>
-                </div>
-            `;
+        if (error) {
+            console.error('Database error:', error);
+            showNotification('Error: ' + error.message);
+            return;
         }
         
-        // Show success modal
-        document.getElementById('upload-success-modal').style.display = 'flex';
-        
-        // Reset file uploads
-        resetUploads();
-        
-        // Refresh loans
-        await loadLoansRealtime();
-        
-        showNotification('Loan request created with documents successfully!');
-        
+        if (data) {
+            // Update user's KYC status
+            const { error: updateError } = await supabase
+                .from('users')
+                .update({ 
+                    kyc_status: 'verified'
+                })
+                .eq('id', currentUser.id);
+            
+            if (updateError) {
+                console.error('Error updating user:', updateError);
+            } else {
+                currentUser.kyc_status = 'verified';
+            }
+            
+            // Close agreement modal
+            document.getElementById('loan-agreement-modal').style.display = 'none';
+            
+            // Update success modal
+            const successSummary = document.getElementById('success-document-summary');
+            if (successSummary) {
+                successSummary.innerHTML = `
+                    <div style="padding: 1rem; text-align: center;">
+                        <i class="fas fa-check-circle" style="font-size: 3rem; color: #2ecc71; margin-bottom: 1rem;"></i>
+                        <h4 style="margin-bottom: 1rem; color: #2c3e50;">Loan Request Created Successfully!</h4>
+                        <div style="background: #f8f9fa; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; text-align: left;">
+                            <p><strong>Purpose:</strong> ${purpose}</p>
+                            <p><strong>Amount:</strong> ₹${amount.toLocaleString()}</p>
+                            <p><strong>Term:</strong> ${term} months</p>
+                            <p><strong>Monthly Payment:</strong> ₹${monthlyPayment.toLocaleString()}</p>
+                        </div>
+                        <div style="background: #e8f4fd; border-radius: 8px; padding: 1rem; text-align: left;">
+                            <p style="margin-bottom: 0.5rem;"><i class="fas fa-id-card" style="color: #3498db;"></i> <strong>Aadhaar:</strong> ${aadhaarFile.name}</p>
+                            <p><i class="fas fa-file-pdf" style="color: #e74c3c;"></i> <strong>Undertaking:</strong> ${undertakingFile.name}</p>
+                        </div>
+                        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">Your documents have been submitted successfully.</p>
+                    </div>
+                `;
+            }
+            
+            // Show success modal
+            document.getElementById('upload-success-modal').style.display = 'flex';
+            
+            // Reset file uploads
+            resetUploads();
+            
+            // Refresh loans
+            await loadLoansRealtime();
+            
+            showNotification('Loan request created with documents successfully!');
+        }
     } catch (error) {
         console.error('Error creating loan:', error);
         showNotification('Error creating loan: ' + error.message);
@@ -1004,58 +973,53 @@ function renderInvestmentOpportunities() {
     });
 }
 
-// Update the showLoanDetails function to fetch documents from loan_documents table
-async function showLoanDetails(loanId) {
+// ============================================
+// SHOW LOAN DETAILS 
+// ============================================
+
+function showLoanDetails(loanId) {
     const loan = loans.find(l => l.id == loanId);
     if (!loan) return;
-    
-    // Fetch documents for this loan
-    const { data: documents, error } = await supabase
-        .from('loan_documents')
-        .select('*')
-        .eq('loan_id', loanId);
     
     const monthlyPayment = loan.monthly_payment;
     const progress = (loan.funded / loan.amount) * 100;
     const totalRepayment = monthlyPayment * loan.term;
     const totalInterest = totalRepayment - loan.amount;
+    const monthlyInterest = totalInterest / loan.term;
     
-    const documentStatus = documents && documents.length > 0 ?
+    const createdDate = new Date(loan.date);
+    const today = new Date();
+    const daysSinceCreation = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
+    
+    const documentStatus = loan.documents ?
         '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> Documents Uploaded</span>' :
         '<span style="color: #e74c3c;"><i class="fas fa-times-circle"></i> Documents Pending</span>';
     
     let documentsHtml = '';
-    if (documents && documents.length > 0) {
-        const aadhaar = documents.find(d => d.document_type === 'aadhaar');
-        const undertaking = documents.find(d => d.document_type === 'undertaking');
-        
+    if (loan.documents) {
         documentsHtml = `
-            <h4 style="margin-top: 1.5rem;">Documents (Click to View)</h4>
+            <h4 style="margin-top: 1.5rem;">Uploaded Documents</h4>
             <div class="document-viewer">
-                ${aadhaar ? `
                 <div class="document-item">
                     <i class="fas fa-id-card" style="color: #3498db;"></i>
                     <div class="document-info">
                         <div class="document-name">Aadhaar Card</div>
-                        <div class="document-meta">${aadhaar.file_name}</div>
+                        <div class="document-meta">${loan.documents.aadhaar?.name || 'N/A'}</div>
                     </div>
-                    <a href="${aadhaar.public_url}" target="_blank" class="view-document" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
-                        <i class="fas fa-external-link-alt"></i> View
-                    </a>
+                    <span class="view-document" style="background: #3498db; color: white; padding: 8px 15px; border-radius: 4px;">
+                        <i class="fas fa-check"></i> Uploaded
+                    </span>
                 </div>
-                ` : ''}
-                ${undertaking ? `
                 <div class="document-item">
                     <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
                     <div class="document-info">
                         <div class="document-name">Signed Undertaking</div>
-                        <div class="document-meta">${undertaking.file_name}</div>
+                        <div class="document-meta">${loan.documents.undertaking?.name || 'N/A'}</div>
                     </div>
-                    <a href="${undertaking.public_url}" target="_blank" class="view-document" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
-                        <i class="fas fa-external-link-alt"></i> View
-                    </a>
+                    <span class="view-document" style="background: #e74c3c; color: white; padding: 8px 15px; border-radius: 4px;">
+                        <i class="fas fa-check"></i> Uploaded
+                    </span>
                 </div>
-                ` : ''}
             </div>
         `;
     }
@@ -1071,6 +1035,8 @@ async function showLoanDetails(loanId) {
             <p><strong>Monthly Payment:</strong> ₹${monthlyPayment.toLocaleString()}</p>
             <p><strong>Total Repayment:</strong> ₹${totalRepayment.toLocaleString()}</p>
             <p><strong>Total Interest:</strong> ₹${totalInterest.toLocaleString()}</p>
+            <p><strong>Monthly Interest:</strong> ₹${monthlyInterest.toLocaleString()}</p>
+            <p><strong>Created:</strong> ${loan.date} (${daysSinceCreation} days ago)</p>
             <p><strong>Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
             <p><strong>KYC Status:</strong> ${documentStatus}</p>
             <p><strong>Funded:</strong> ${progress.toFixed(1)}% (₹${loan.funded.toLocaleString()})</p>
@@ -1084,9 +1050,19 @@ async function showLoanDetails(loanId) {
             loan.investors.map(inv => `<p>${inv.investor}: ₹${inv.amount.toLocaleString()}</p>`).join('') :
             '<p>No investors yet</p>'
         }
+        ${currentUser && currentUser.username !== loan.borrower && loan.status === 'active' ?
+            `<button class="btn btn-accent invest-btn" data-id="${loan.id}" style="margin-top: 1.5rem;">Invest in this Loan</button>` : ''}
     `;
     
     document.getElementById('loan-detail-modal').style.display = 'flex';
+    
+    const investBtn = document.querySelector('#loan-detail-content .invest-btn');
+    if (investBtn) {
+        investBtn.addEventListener('click', function () {
+            document.getElementById('loan-detail-modal').style.display = 'none';
+            showInvestModal(loanId);
+        });
+    }
 }
 
 function showInvestModal(loanId) {
@@ -1361,65 +1337,54 @@ function renderUserDashboard() {
     }
 }
 
-// Update renderUserDocuments function
-async function renderUserDocuments() {
+// ============================================
+// RENDER USER DOCUMENTS (Updated)
+// ============================================
+
+function renderUserDocuments() {
     const container = document.getElementById('user-documents-container');
     if (!container || !currentUser) return;
 
-    // Fetch all loans by this user
-    const userLoans = loans.filter(loan => loan.borrower === currentUser.username);
-    
+    const userLoans = loans.filter(loan => loan.borrower === currentUser.username && loan.documents);
+
     if (userLoans.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No loans found.</p>';
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No documents uploaded yet.</p>';
         return;
     }
 
     let html = '<div class="document-viewer">';
 
-    for (const loan of userLoans) {
-        // Fetch documents for this loan
-        const { data: documents } = await supabase
-            .from('loan_documents')
-            .select('*')
-            .eq('loan_id', loan.id);
-        
-        if (documents && documents.length > 0) {
-            const aadhaar = documents.find(d => d.document_type === 'aadhaar');
-            const undertaking = documents.find(d => d.document_type === 'undertaking');
-            
+    userLoans.forEach(loan => {
+        if (loan.documents) {
             html += `
                 <div style="background: #f8f9fa; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
                     <h4 style="margin: 0 0 1rem 0; color: #2c3e50;">Loan: ${loan.purpose} (₹${loan.amount.toLocaleString()})</h4>
                     
-                    ${aadhaar ? `
                     <div class="document-item">
                         <i class="fas fa-id-card" style="color: #3498db;"></i>
                         <div class="document-info">
                             <div class="document-name">Aadhaar Card</div>
-                            <div class="document-meta">${aadhaar.file_name}</div>
+                            <div class="document-meta">${loan.documents.aadhaar?.name || 'N/A'}</div>
                         </div>
-                        <a href="${aadhaar.public_url}" target="_blank" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
-                            <i class="fas fa-external-link-alt"></i> View
-                        </a>
+                        <span style="background: #3498db; color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem;">
+                            <i class="fas fa-check"></i> Uploaded
+                        </span>
                     </div>
-                    ` : ''}
                     
-                    ${undertaking ? `
                     <div class="document-item">
                         <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
                         <div class="document-info">
                             <div class="document-name">Signed Undertaking</div>
-                            <div class="document-meta">${undertaking.file_name}</div>
+                            <div class="document-meta">${loan.documents.undertaking?.name || 'N/A'}</div>
                         </div>
-                        <a href="${undertaking.public_url}" target="_blank" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
-                            <i class="fas fa-external-link-alt"></i> View
-                        </a>
+                        <span style="background: #e74c3c; color: white; padding: 5px 10px; border-radius: 4px; font-size: 0.8rem;">
+                            <i class="fas fa-check"></i> Uploaded
+                        </span>
                     </div>
-                    ` : ''}
                 </div>
             `;
         }
-    }
+    });
 
     html += '</div>';
     container.innerHTML = html;
