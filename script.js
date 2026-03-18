@@ -1,7 +1,6 @@
 // ============================================
-// FRIENDFUNDS - SUPABASE CLOUD VERSION
-// ALL ORIGINAL FEATURES PRESERVED
-// Real-time sync across all devices
+// FRIENDFUNDS - COMPLETE SCRIPT.JS
+// WITH PROPER SUPABASE STORAGE FOR DOCUMENTS
 // ============================================
 
 // ============================================
@@ -23,210 +22,280 @@ let uploadedFiles = {
 let currentLoanForInvestment = null;
 
 // Razorpay configuration
-const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE'; // Replace with your Razorpay key
+const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE'; // Replace with your Razorpay test key
 
 // ============================================
 // REAL-TIME DATA LOADING FROM SUPABASE
 // ============================================
 
-// SIMPLIFIED REAL-TIME LOANS
+// Load loans in real-time
 async function loadLoansRealtime() {
     if (!window.supabase) {
+        console.log("Waiting for Supabase...");
         setTimeout(loadLoansRealtime, 1000);
         return;
     }
     
-    // Load loans
-    const { data } = await supabase
-        .from('loans')
-        .select('*')
-        .order('created_at', { ascending: false });
-    
-    if (data) {
-        loans = data;
-        renderLoanRequests();
-        renderInvestmentOpportunities();
-    }
-
-    // Real-time subscription
-    supabase
-        .channel('loans-channel')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'loans' },
-            () => {
-                loadLoansRealtime(); // Reload on any change
+    try {
+        // Load loans
+        const { data, error } = await supabase
+            .from('loans')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        if (data) {
+            loans = data;
+            renderLoanRequests();
+            renderInvestmentOpportunities();
+            if (currentUser) {
+                renderUserDashboard();
+                renderUserDocuments();
             }
-        )
-        .subscribe();
+        }
+
+        // Real-time subscription
+        supabase
+            .channel('loans-channel')
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'loans' },
+                (payload) => {
+                    console.log('Loans updated:', payload);
+                    loadLoansRealtime(); // Reload on any change
+                }
+            )
+            .subscribe();
+    } catch (error) {
+        console.error('Error loading loans:', error);
+    }
 }
+
 // Load investments in real-time
 async function loadInvestmentsRealtime() {
-    const { data, error } = await supabase
-        .from('investments')
-        .select('*');
-    
-    if (data) {
-        investments = data;
-    }
+    try {
+        const { data, error } = await supabase
+            .from('investments')
+            .select('*');
+        
+        if (error) throw error;
+        
+        if (data) {
+            investments = data;
+        }
 
-    supabase
-        .channel('investments-channel')
-        .on('postgres_changes', 
-            { event: '*', schema: 'public', table: 'investments' },
-            (payload) => {
-                console.log('Investments updated:', payload);
-                loadInvestmentsRealtime();
-                if (currentUser) renderUserDashboard();
-            }
-        )
-        .subscribe();
+        supabase
+            .channel('investments-channel')
+            .on('postgres_changes', 
+                { event: '*', schema: 'public', table: 'investments' },
+                (payload) => {
+                    console.log('Investments updated:', payload);
+                    loadInvestmentsRealtime();
+                    if (currentUser) renderUserDashboard();
+                }
+            )
+            .subscribe();
+    } catch (error) {
+        console.error('Error loading investments:', error);
+    }
 }
 
 // Load users
 async function loadUsers() {
-    const { data, error } = await supabase
-        .from('users')
-        .select('*');
-    
-    if (data) {
-        users = data;
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*');
+        
+        if (error) throw error;
+        
+        if (data) {
+            users = data;
+        }
+    } catch (error) {
+        console.error('Error loading users:', error);
     }
 }
-// After loan is created, force a refresh
-setTimeout(() => {
-    loadLoansRealtime();
-}, 500);
 
 // ============================================
-// SAMPLE DATA INITIALIZATION
+// SUPABASE STORAGE FOR DOCUMENTS
+// ============================================
+
+// Upload file to Supabase Storage
+async function uploadDocument(file, userId, documentType, loanId) {
+    try {
+        // Create a unique file path
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${userId}/${documentType}_${loanId}_${Date.now()}.${fileExt}`;
+        const filePath = `loan-documents/${fileName}`;
+
+        // Upload to Supabase Storage
+        const { data, error } = await supabase.storage
+            .from('documents')
+            .upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+
+        if (error) throw error;
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(filePath);
+
+        return {
+            path: filePath,
+            url: urlData.publicUrl,
+            name: file.name,
+            size: file.size,
+            type: file.type
+        };
+    } catch (error) {
+        console.error('Error uploading document:', error);
+        throw error;
+    }
+}
+
+// ============================================
+// INITIALIZE SAMPLE DATA
 // ============================================
 
 async function initializeSampleData() {
-    const { data: existingLoans, error } = await supabase
-        .from('loans')
-        .select('*')
-        .limit(1);
-    
-    if (!existingLoans || existingLoans.length === 0) {
-        console.log("Adding sample loans...");
+    try {
+        // Check if loans exist
+        const { data: existingLoans, error: loanError } = await supabase
+            .from('loans')
+            .select('*')
+            .limit(1);
         
-        const sampleLoans = [
-            {
-                borrower: 'Nirmal',
-                purpose: 'Education Fee',
-                amount: 15000,
-                term: 12,
-                interest: 8,
-                status: 'active',
-                date: '2023-09-15',
-                monthly_payment: 1302,
-                funded: 8000,
-                investors: [],
-                documents: null,
-                agreement_accepted: false,
-                created_at: new Date().toISOString()
-            },
-            {
-                borrower: 'Harsh',
-                purpose: 'Vacation',
-                amount: 8000,
-                term: 6,
-                interest: 8,
-                status: 'active',
-                date: '2023-10-05',
-                monthly_payment: 1360,
-                funded: 3000,
-                investors: [],
-                documents: null,
-                agreement_accepted: false,
-                created_at: new Date().toISOString()
-            },
-            {
-                borrower: 'Mohit',
-                purpose: 'Laptop Purchase',
-                amount: 25000,
-                term: 18,
-                interest: 8,
-                status: 'active',
-                date: '2023-10-20',
-                monthly_payment: 1484,
-                funded: 12000,
-                investors: [],
-                documents: null,
-                agreement_accepted: false,
-                created_at: new Date().toISOString()
-            },
-            {
-                borrower: 'Shubham',
-                purpose: 'Air condition Purchase',
-                amount: 35000,
-                term: 18,
-                interest: 8,
-                status: 'active',
-                date: '2023-10-20',
-                monthly_payment: 2078,
-                funded: 15000,
-                investors: [],
-                documents: null,
-                agreement_accepted: false,
-                created_at: new Date().toISOString()
+        if (loanError) throw loanError;
+        
+        if (!existingLoans || existingLoans.length === 0) {
+            console.log("Adding sample loans...");
+            
+            const sampleLoans = [
+                {
+                    borrower: 'Nirmal',
+                    purpose: 'Education Fee',
+                    amount: 15000,
+                    term: 12,
+                    interest: 8,
+                    status: 'active',
+                    date: new Date().toISOString().split('T')[0],
+                    monthly_payment: 1302,
+                    funded: 8000,
+                    investors: [],
+                    documents: null,
+                    agreement_accepted: false,
+                    created_at: new Date().toISOString()
+                },
+                {
+                    borrower: 'Harsh',
+                    purpose: 'Vacation',
+                    amount: 8000,
+                    term: 6,
+                    interest: 8,
+                    status: 'active',
+                    date: new Date().toISOString().split('T')[0],
+                    monthly_payment: 1360,
+                    funded: 3000,
+                    investors: [],
+                    documents: null,
+                    agreement_accepted: false,
+                    created_at: new Date().toISOString()
+                },
+                {
+                    borrower: 'Mohit',
+                    purpose: 'Laptop Purchase',
+                    amount: 25000,
+                    term: 18,
+                    interest: 8,
+                    status: 'active',
+                    date: new Date().toISOString().split('T')[0],
+                    monthly_payment: 1484,
+                    funded: 12000,
+                    investors: [],
+                    documents: null,
+                    agreement_accepted: false,
+                    created_at: new Date().toISOString()
+                },
+                {
+                    borrower: 'Shubham',
+                    purpose: 'Air Conditioner',
+                    amount: 35000,
+                    term: 18,
+                    interest: 8,
+                    status: 'active',
+                    date: new Date().toISOString().split('T')[0],
+                    monthly_payment: 2078,
+                    funded: 15000,
+                    investors: [],
+                    documents: null,
+                    agreement_accepted: false,
+                    created_at: new Date().toISOString()
+                }
+            ];
+            
+            for (const loan of sampleLoans) {
+                await supabase.from('loans').insert([loan]);
             }
-        ];
-        
-        for (const loan of sampleLoans) {
-            await supabase.from('loans').insert([loan]);
+            console.log("Sample loans added!");
         }
-        console.log("Sample loans added!");
-    }
 
-    // Check if users exist
-    const { data: existingUsers } = await supabase
-        .from('users')
-        .select('*')
-        .limit(1);
-    
-    if (!existingUsers || existingUsers.length === 0) {
-        console.log("Adding sample users...");
+        // Check if users exist
+        const { data: existingUsers, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .limit(1);
         
-        const sampleUsers = [
-            {
-                username: 'Nirmal',
-                password: 'password123',
-                email: 'Nirmal@example.com',
-                balance: 1000000,
-                kyc_status: 'pending',
-                documents: []
-            },
-            {
-                username: 'Harsh',
-                password: 'password123',
-                email: 'Harsh@example.com',
-                balance: 1000000,
-                kyc_status: 'pending',
-                documents: []
-            },
-            {
-                username: 'Mohit',
-                password: 'password123',
-                email: 'Mohit@example.com',
-                balance: 1000000,
-                kyc_status: 'pending',
-                documents: []
-            },
-            {
-                username: 'Shubham',
-                password: 'password123',
-                email: 'Shubham@example.com',
-                balance: 1000000,
-                kyc_status: 'pending',
-                documents: []
+        if (userError) throw userError;
+        
+        if (!existingUsers || existingUsers.length === 0) {
+            console.log("Adding sample users...");
+            
+            const sampleUsers = [
+                {
+                    username: 'Nirmal',
+                    password: 'password123',
+                    email: 'nirmal@example.com',
+                    balance: 1000000,
+                    kyc_status: 'pending',
+                    documents: []
+                },
+                {
+                    username: 'Harsh',
+                    password: 'password123',
+                    email: 'harsh@example.com',
+                    balance: 1000000,
+                    kyc_status: 'pending',
+                    documents: []
+                },
+                {
+                    username: 'Mohit',
+                    password: 'password123',
+                    email: 'mohit@example.com',
+                    balance: 1000000,
+                    kyc_status: 'pending',
+                    documents: []
+                },
+                {
+                    username: 'Shubham',
+                    password: 'password123',
+                    email: 'shubham@example.com',
+                    balance: 1000000,
+                    kyc_status: 'pending',
+                    documents: []
+                }
+            ];
+            
+            for (const user of sampleUsers) {
+                await supabase.from('users').insert([user]);
             }
-        ];
-        
-        for (const user of sampleUsers) {
-            await supabase.from('users').insert([user]);
+            console.log("Sample users added!");
         }
-        console.log("Sample users added!");
+    } catch (error) {
+        console.error('Error initializing sample data:', error);
     }
 }
 
@@ -242,23 +311,31 @@ document.getElementById('login-form')?.addEventListener('submit', async (e) => {
     const password = document.getElementById('password').value;
     const rememberMe = document.getElementById('remember-me')?.checked || false;
     
-    const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .or(`username.eq.${usernameOrEmail},email.eq.${usernameOrEmail}`)
-        .eq('password', password)
-        .single();
-    
-    if (data) {
-        currentUser = data;
-        if (rememberMe) {
-            localStorage.setItem('friendlend_currentUser', JSON.stringify(data));
-            localStorage.setItem('friendlend_rememberMe', 'true');
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .or(`username.eq.${usernameOrEmail},email.eq.${usernameOrEmail}`)
+            .eq('password', password)
+            .single();
+        
+        if (error) throw error;
+        
+        if (data) {
+            currentUser = data;
+            if (rememberMe) {
+                localStorage.setItem('friendfunds_currentUser', JSON.stringify(data));
+                localStorage.setItem('friendfunds_rememberMe', 'true');
+            }
+            updateUIAfterLogin();
+            document.getElementById('login-modal').style.display = 'none';
+            document.getElementById('login-form').reset();
+            showNotification('Login successful!');
+            renderUserDashboard();
+            renderUserDocuments();
         }
-        updateUIAfterLogin();
-        document.getElementById('login-modal').style.display = 'none';
-        showNotification('Login successful!');
-    } else {
+    } catch (error) {
+        console.error('Login error:', error);
         showNotification('Invalid username/email or password');
     }
 });
@@ -277,54 +354,59 @@ document.getElementById('register-form')?.addEventListener('submit', async (e) =
         return;
     }
     
-    // Check if username exists
-    const { data: existingUsername } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', username)
-        .single();
-    
-    if (existingUsername) {
-        showNotification('Username already exists');
-        return;
-    }
-    
-    // Check if email exists
-    const { data: existingEmail } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
-    
-    if (existingEmail) {
-        showNotification('Email already registered');
-        return;
-    }
-    
-    // Create new user
-    const { data, error } = await supabase
-        .from('users')
-        .insert([
-            {
-                username,
-                password,
-                email,
-                balance: 50000,
-                kyc_status: 'pending',
-                documents: []
-            }
-        ])
-        .select()
-        .single();
-    
-    if (data) {
-        users.push(data);
-        document.getElementById('register-modal').style.display = 'none';
-        document.getElementById('register-form').reset();
-        showNotification('Registration successful! Please login.');
-        document.getElementById('username').value = username;
-        document.getElementById('login-modal').style.display = 'flex';
-    } else {
+    try {
+        // Check if username exists
+        const { data: existingUsername } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .single();
+        
+        if (existingUsername) {
+            showNotification('Username already exists');
+            return;
+        }
+        
+        // Check if email exists
+        const { data: existingEmail } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+        
+        if (existingEmail) {
+            showNotification('Email already registered');
+            return;
+        }
+        
+        // Create new user
+        const { data, error } = await supabase
+            .from('users')
+            .insert([
+                {
+                    username,
+                    password,
+                    email,
+                    balance: 50000,
+                    kyc_status: 'pending',
+                    documents: []
+                }
+            ])
+            .select()
+            .single();
+        
+        if (error) throw error;
+        
+        if (data) {
+            users.push(data);
+            document.getElementById('register-modal').style.display = 'none';
+            document.getElementById('register-form').reset();
+            showNotification('Registration successful! Please login.');
+            document.getElementById('username').value = username;
+            document.getElementById('login-modal').style.display = 'flex';
+        }
+    } catch (error) {
+        console.error('Registration error:', error);
         showNotification('Registration failed');
     }
 });
@@ -334,17 +416,23 @@ document.getElementById('forgot-password-form')?.addEventListener('submit', asyn
     e.preventDefault();
     const email = document.getElementById('reset-email').value;
     
-    const { data, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', email)
-        .single();
-    
-    if (data) {
-        showNotification(`Password recovery: Your password is: ${data.password}`);
-        document.getElementById('forgot-password-modal').style.display = 'none';
-        document.getElementById('login-modal').style.display = 'flex';
-    } else {
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+        
+        if (error) throw error;
+        
+        if (data) {
+            showNotification(`Password recovery: Your password is: ${data.password}`);
+            document.getElementById('forgot-password-modal').style.display = 'none';
+            document.getElementById('forgot-password-form').reset();
+            document.getElementById('login-modal').style.display = 'flex';
+        }
+    } catch (error) {
+        console.error('Password recovery error:', error);
         showNotification('No account found with that email address');
     }
 });
@@ -352,9 +440,19 @@ document.getElementById('forgot-password-form')?.addEventListener('submit', asyn
 // Logout
 function logout() {
     currentUser = null;
-    localStorage.removeItem('friendlend_currentUser');
-    localStorage.removeItem('friendlend_rememberMe');
-    document.getElementById('login-btn').textContent = 'Login';
+    localStorage.removeItem('friendfunds_currentUser');
+    localStorage.removeItem('friendfunds_rememberMe');
+    
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) {
+        loginBtn.textContent = 'Login';
+        loginBtn.removeEventListener('click', logout);
+        loginBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            document.getElementById('login-modal').style.display = 'flex';
+        });
+    }
+    
     document.getElementById('user-dashboard').style.display = 'none';
     showSection('home');
     showNotification('Logged out successfully');
@@ -362,13 +460,21 @@ function logout() {
 
 // Check saved user
 function checkSavedUser() {
-    const savedUser = localStorage.getItem('friendlend_currentUser');
-    const rememberMe = localStorage.getItem('friendlend_rememberMe') === 'true';
+    const savedUser = localStorage.getItem('friendfunds_currentUser');
+    const rememberMe = localStorage.getItem('friendfunds_rememberMe') === 'true';
 
     if (savedUser && rememberMe) {
-        currentUser = JSON.parse(savedUser);
-        updateUIAfterLogin();
-        showNotification(`Welcome back, ${currentUser.username}!`);
+        try {
+            currentUser = JSON.parse(savedUser);
+            updateUIAfterLogin();
+            showNotification(`Welcome back, ${currentUser.username}!`);
+            renderUserDashboard();
+            renderUserDocuments();
+        } catch (error) {
+            console.error('Error loading saved user:', error);
+            localStorage.removeItem('friendfunds_currentUser');
+            localStorage.removeItem('friendfunds_rememberMe');
+        }
     }
 }
 
@@ -389,25 +495,31 @@ document.getElementById('loan-request-form')?.addEventListener('submit', (e) => 
     const amount = parseInt(document.getElementById('amount').value);
     const term = parseInt(document.getElementById('term').value);
     
+    // Calculate monthly payment with 8% interest
     const monthlyInterest = 8 / 12 / 100;
     const monthlyPayment = amount * monthlyInterest * Math.pow(1 + monthlyInterest, term) / (Math.pow(1 + monthlyInterest, term) - 1);
     
+    // Store in hidden fields
     document.getElementById('agreement-purpose').value = purpose;
     document.getElementById('agreement-amount').value = amount;
     document.getElementById('agreement-term').value = term;
     document.getElementById('agreement-monthly-payment').value = Math.round(monthlyPayment);
     
+    // Update summary
     document.getElementById('summary-purpose').textContent = purpose;
     document.getElementById('summary-amount').textContent = amount.toLocaleString();
     document.getElementById('summary-term').textContent = term;
     document.getElementById('summary-monthly').textContent = Math.round(monthlyPayment).toLocaleString();
     
+    // Reset file uploads
     resetUploads();
+    
+    // Show agreement modal
     document.getElementById('loan-agreement-modal').style.display = 'flex';
 });
 
 // ============================================
-// SUBMIT LOAN AGREEMENT
+// SUBMIT LOAN AGREEMENT WITH FILE UPLOAD
 // ============================================
 
 document.getElementById('loan-agreement-form')?.addEventListener('submit', async (e) => {
@@ -420,16 +532,18 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         return;
     }
     
+    // Validate file uploads
     if (!uploadedFiles.aadhaar || !uploadedFiles.undertaking) {
         showNotification('Please upload all required documents');
         return;
     }
     
     if (!document.getElementById('agree-terms').checked) {
-        showNotification('Please agree to terms');
+        showNotification('Please agree to terms and conditions');
         return;
     }
     
+    // Show uploading notification
     showNotification('Uploading documents...');
     
     try {
@@ -438,33 +552,48 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         const term = parseInt(document.getElementById('agreement-term').value);
         const monthlyPayment = parseInt(document.getElementById('agreement-monthly-payment').value);
         
-        // Convert files to data URLs
-        const aadhaarDataUrl = await readFileAsDataURL(uploadedFiles.aadhaar);
-        const undertakingDataUrl = await readFileAsDataURL(uploadedFiles.undertaking);
+        // Step 1: Upload Aadhaar to Supabase Storage
+        const aadhaarFile = uploadedFiles.aadhaar;
+        const aadhaarData = await uploadDocument(
+            aadhaarFile, 
+            currentUser.id || currentUser.username, 
+            'aadhaar',
+            Date.now()
+        );
         
+        // Step 2: Upload Undertaking to Supabase Storage
+        const undertakingFile = uploadedFiles.undertaking;
+        const undertakingData = await uploadDocument(
+            undertakingFile, 
+            currentUser.id || currentUser.username, 
+            'undertaking',
+            Date.now()
+        );
+        
+        // Step 3: Create document record (store only metadata and URLs, not file data)
         const documentRecord = {
             aadhaar: {
-                name: uploadedFiles.aadhaar.name,
-                type: uploadedFiles.aadhaar.type,
-                size: uploadedFiles.aadhaar.size,
-                dataUrl: aadhaarDataUrl,
-                viewUrl: aadhaarDataUrl,
+                name: aadhaarFile.name,
+                type: aadhaarFile.type,
+                size: aadhaarFile.size,
+                url: aadhaarData.url,
+                path: aadhaarData.path,
                 uploadedAt: new Date().toISOString()
             },
             undertaking: {
-                name: uploadedFiles.undertaking.name,
-                type: uploadedFiles.undertaking.type,
-                size: uploadedFiles.undertaking.size,
-                dataUrl: undertakingDataUrl,
-                viewUrl: undertakingDataUrl,
+                name: undertakingFile.name,
+                type: undertakingFile.type,
+                size: undertakingFile.size,
+                url: undertakingData.url,
+                path: undertakingData.path,
                 uploadedAt: new Date().toISOString()
             },
             agreementAccepted: true,
             agreementDate: new Date().toISOString()
         };
         
-        // Create loan in database
-        const { data, error } = await supabase
+        // Step 4: Create loan in database
+        const { data: loanData, error: loanError } = await supabase
             .from('loans')
             .insert([
                 {
@@ -479,248 +608,97 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
                     monthly_payment: monthlyPayment,
                     funded: 0,
                     investors: [],
-                    documents: documentRecord,
+                    documents: documentRecord, // Store metadata, not file data
                     agreement_accepted: true,
-                    agreement_date: new Date().toISOString()
+                    agreement_date: new Date().toISOString(),
+                    created_at: new Date().toISOString()
                 }
             ])
             .select()
             .single();
         
-        if (data) {
-            // Update user's KYC status
-            const updatedDocs = [...(currentUser.documents || []), {
-                type: 'loan_documents',
-                loanId: data.id,
-                date: new Date().toISOString(),
-                documents: {
-                    aadhaar: documentRecord.aadhaar,
-                    undertaking: documentRecord.undertaking
-                }
-            }];
-            
-            const { error: updateError } = await supabase
-                .from('users')
-                .update({ 
-                    kyc_status: 'verified',
-                    documents: updatedDocs
-                })
-                .eq('id', currentUser.id);
-            
-            if (!updateError) {
-                currentUser.kyc_status = 'verified';
-                currentUser.documents = updatedDocs;
-            }
-            
-            document.getElementById('loan-agreement-modal').style.display = 'none';
-            
-            // Update success modal
-            const successSummary = document.getElementById('success-document-summary');
-            if (successSummary) {
-                successSummary.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <i class="fas fa-id-card" style="color: #3498db; width: 20px;"></i>
-                        <span style="font-size: 0.9rem;">Aadhaar: <strong>${uploadedFiles.aadhaar.name}</strong></span>
-                        <button onclick="openDocumentInBrowser('aadhaar', ${data.id})" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
-                            <i class="fas fa-external-link-alt"></i> View
-                        </button>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <i class="fas fa-file-pdf" style="color: #e74c3c; width: 20px;"></i>
-                        <span style="font-size: 0.9rem;">Undertaking: <strong>${uploadedFiles.undertaking.name}</strong></span>
-                        <button onclick="openDocumentInBrowser('undertaking', ${data.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
-                            <i class="fas fa-external-link-alt"></i> View
-                        </button>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <i class="fas fa-check-circle" style="color: #2ecc71; width: 20px;"></i>
-                        <span style="font-size: 0.9rem;">Documents submitted successfully</span>
-                    </div>
-                `;
-            }
-            
-            document.getElementById('upload-success-modal').style.display = 'flex';
-            
-            showNotification('Loan request created with documents successfully!');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        showNotification('Error creating loan');
-    }
-});
-
-// Helper to read file as data URL
-function readFileAsDataURL(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-// ============================================
-// INVESTMENT FUNCTIONS
-// ============================================
-
-async function investInLoan(loanId, amount, paymentResponse) {
-    const loan = loans.find(l => l.id == loanId);
-    if (!loan) return;
-    
-    try {
-        // Update loan
-        const newFunded = loan.funded + parseInt(amount);
-        const newStatus = newFunded >= loan.amount ? 'funded' : 'active';
-        
-        const newInvestors = [...(loan.investors || []), {
-            investor: currentUser.username,
-            amount: parseInt(amount),
-            paymentId: paymentResponse.razorpay_payment_id
-        }];
-        
-        // Update loan in database
-        const { error: loanError } = await supabase
-            .from('loans')
-            .update({
-                funded: newFunded,
-                status: newStatus,
-                investors: newInvestors
-            })
-            .eq('id', loanId);
-        
         if (loanError) throw loanError;
         
-        // Update user balance
-        const newBalance = currentUser.balance - parseInt(amount);
-        const { error: userError } = await supabase
+        // Step 5: Update user's KYC status and document records
+        const updatedDocs = [...(currentUser.documents || []), {
+            type: 'loan_documents',
+            loanId: loanData.id,
+            date: new Date().toISOString(),
+            documents: {
+                aadhaar: documentRecord.aadhaar,
+                undertaking: documentRecord.undertaking
+            }
+        }];
+        
+        const { error: updateError } = await supabase
             .from('users')
-            .update({ balance: newBalance })
+            .update({ 
+                kyc_status: 'verified',
+                documents: updatedDocs
+            })
             .eq('id', currentUser.id);
         
-        if (userError) throw userError;
+        if (updateError) throw updateError;
         
-        // Create investment record
-        const investment = {
-            loan_id: loanId,
-            investor: currentUser.username,
-            investor_id: currentUser.id,
-            amount: parseInt(amount),
-            date: new Date().toISOString().split('T')[0],
-            expected_return: Math.round(parseInt(amount) * (1 + 8 / 100 * loan.term / 12)),
-            status: 'active',
-            payment_id: paymentResponse.razorpay_payment_id,
-            payment_method: 'Razorpay'
-        };
+        // Update current user
+        currentUser.kyc_status = 'verified';
+        currentUser.documents = updatedDocs;
         
-        const { error: invError } = await supabase
-            .from('investments')
-            .insert([investment]);
+        // Close agreement modal
+        document.getElementById('loan-agreement-modal').style.display = 'none';
         
-        if (invError) throw invError;
+        // Update success modal with document links
+        const successSummary = document.getElementById('success-document-summary');
+        if (successSummary) {
+            successSummary.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <i class="fas fa-id-card" style="color: #3498db; font-size: 1.5rem;"></i>
+                    <div style="flex: 1; text-align: left;">
+                        <div style="font-weight: 500; font-size: 0.9rem;">Aadhaar Card</div>
+                        <div style="font-size: 0.8rem; color: #666;">${aadhaarFile.name}</div>
+                    </div>
+                    <a href="${aadhaarData.url}" target="_blank" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">
+                        <i class="fas fa-external-link-alt"></i> View
+                    </a>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    <i class="fas fa-file-pdf" style="color: #e74c3c; font-size: 1.5rem;"></i>
+                    <div style="flex: 1; text-align: left;">
+                        <div style="font-weight: 500; font-size: 0.9rem;">Signed Undertaking</div>
+                        <div style="font-size: 0.8rem; color: #666;">${undertakingFile.name}</div>
+                    </div>
+                    <a href="${undertakingData.url}" target="_blank" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none; font-size: 0.9rem;">
+                        <i class="fas fa-external-link-alt"></i> View
+                    </a>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #d4edda; border-radius: 8px; color: #155724;">
+                    <i class="fas fa-check-circle" style="font-size: 1.2rem;"></i>
+                    <span style="font-size: 0.9rem;">Documents uploaded successfully! Loan request created.</span>
+                </div>
+            `;
+        }
         
-        // Update local user balance
-        currentUser.balance = newBalance;
+        // Show success modal
+        document.getElementById('upload-success-modal').style.display = 'flex';
         
-        document.getElementById('invest-modal').style.display = 'none';
+        // Reset file uploads
+        resetUploads();
         
-        showNotification(`Successfully invested ₹${amount} in ${loan.purpose} via Razorpay! Payment ID: ${paymentResponse.razorpay_payment_id}`);
+        // Refresh loans
+        await loadLoansRealtime();
+        
+        showNotification('Loan request created with documents successfully!');
         
     } catch (error) {
-        console.error('Investment error:', error);
-        showNotification('Investment failed');
+        console.error('Error creating loan:', error);
+        showNotification('Error creating loan: ' + error.message);
     }
-}
-
-// ============================================
-// RAZORPAY PAYMENT
-// ============================================
-
-document.getElementById('razorpay-pay-btn')?.addEventListener('click', function () {
-    if (!currentUser) {
-        showNotification('Please login first');
-        document.getElementById('invest-modal').style.display = 'none';
-        document.getElementById('login-modal').style.display = 'flex';
-        return;
-    }
-    
-    const amount = document.getElementById('invest-amount').value;
-    const loanId = document.getElementById('invest-form').getAttribute('data-loan-id');
-    const loan = loans.find(l => l.id == loanId);
-    
-    if (!amount || amount < 1000) {
-        showNotification('Please enter minimum investment amount of ₹1000');
-        return;
-    }
-    
-    if (!loan) {
-        showNotification('Loan not found');
-        return;
-    }
-    
-    const remaining = loan.amount - loan.funded;
-    if (amount > remaining) {
-        showNotification(`Amount exceeds remaining loan amount of ₹${remaining}`);
-        return;
-    }
-    
-    if (amount > currentUser.balance) {
-        showNotification('Insufficient balance. Please add funds to your account.');
-        return;
-    }
-    
-    // Initialize Razorpay payment
-    const options = {
-        key: RAZORPAY_KEY_ID,
-        amount: amount * 100,
-        currency: 'INR',
-        name: 'FriendFunds',
-        description: `Investment in ${loan.purpose}`,
-        image: 'https://friendfunds.in/logo.png',
-        handler: function (response) {
-            investInLoan(loanId, amount, response);
-        },
-        prefill: {
-            name: currentUser.username,
-            email: currentUser.email,
-            contact: ''
-        },
-        notes: {
-            address: 'FriendFunds Investment'
-        },
-        theme: {
-            color: '#3498db'
-        },
-        modal: {
-            ondismiss: function () {
-                showNotification('Payment cancelled');
-            }
-        }
-    };
-    
-    const rzp = new Razorpay(options);
-    rzp.open();
 });
 
-// ============================================
-// DOCUMENT VIEWING
-// ============================================
-
-// Create document URL for browser viewing
-function createDocumentUrl(file, type) {
-    const blob = new Blob([file], { type: file.type });
-    return URL.createObjectURL(blob);
-}
-
-// Open document in new browser tab
-window.openDocumentInBrowser = function (docType, loanId) {
-    const loan = loans.find(l => l.id == loanId);
-    if (!loan || !loan.documents) return;
-    
-    const documentData = loan.documents[docType];
-    if (!documentData) return;
-    
-    if (documentData.dataUrl) {
-        window.open(documentData.dataUrl, '_blank');
+// Helper function to open document in new tab
+window.openDocumentInBrowser = function (url) {
+    if (url) {
+        window.open(url, '_blank');
     } else {
         showNotification('Document URL not available');
     }
@@ -763,6 +741,7 @@ function initFileUploadHandlers() {
             const file = e.dataTransfer.files[0];
             if (file) {
                 handleFileUpload(file, 'aadhaar');
+                aadhaarUpload.files = e.dataTransfer.files;
             }
         });
     }
@@ -794,6 +773,7 @@ function initFileUploadHandlers() {
             const file = e.dataTransfer.files[0];
             if (file) {
                 handleFileUpload(file, 'undertaking');
+                undertakingUpload.files = e.dataTransfer.files;
             }
         });
     }
@@ -802,11 +782,13 @@ function initFileUploadHandlers() {
 function handleFileUpload(file, type) {
     if (!file) return;
 
+    // Check file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
         showNotification('File size should be less than 5MB');
         return;
     }
 
+    // Validate file type
     if (type === 'aadhaar') {
         const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
         if (!validTypes.includes(file.type)) {
@@ -814,15 +796,15 @@ function handleFileUpload(file, type) {
             return;
         }
         uploadedFiles.aadhaar = file;
-        updateFilePreview(file, 'aadhaar');
     } else {
         if (file.type !== 'application/pdf') {
             showNotification('Please upload PDF file for undertaking');
             return;
         }
         uploadedFiles.undertaking = file;
-        updateFilePreview(file, 'undertaking');
     }
+    
+    updateFilePreview(file, type);
 }
 
 function updateFilePreview(file, type) {
@@ -913,7 +895,7 @@ function resetUploads() {
 }
 
 // ============================================
-// RENDER FUNCTIONS (EXACTLY AS YOUR ORIGINAL)
+// RENDER FUNCTIONS
 // ============================================
 
 function renderLoanRequests() {
@@ -943,7 +925,7 @@ function renderLoanRequests() {
             </div>
             <p><strong>Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
             <p><strong>Term:</strong> ${loan.term} months</p>
-            <p><strong>Monthly Payment:</strong> ₹${loan.monthly_payment?.toLocaleString() || loan.monthlyPayment?.toLocaleString()}</p>
+            <p><strong>Monthly Payment:</strong> ₹${loan.monthly_payment?.toLocaleString()}</p>
             <p><strong>Funded:</strong> ${progress.toFixed(1)}% (₹${loan.funded.toLocaleString()})</p>
             <div class="progress-bar">
                 <div class="progress" style="width: ${progress}%"></div>
@@ -956,9 +938,10 @@ function renderLoanRequests() {
         container.appendChild(element);
     });
 
+    // Add event listeners
     document.querySelectorAll('.view-loan').forEach(button => {
         button.addEventListener('click', function () {
-            const loanId = parseInt(this.getAttribute('data-id'));
+            const loanId = this.getAttribute('data-id');
             showLoanDetails(loanId);
         });
     });
@@ -970,7 +953,7 @@ function renderLoanRequests() {
                 document.getElementById('login-modal').style.display = 'flex';
                 return;
             }
-            const loanId = parseInt(this.getAttribute('data-id'));
+            const loanId = this.getAttribute('data-id');
             showInvestModal(loanId);
         });
     });
@@ -1017,7 +1000,7 @@ function renderInvestmentOpportunities() {
                 document.getElementById('login-modal').style.display = 'flex';
                 return;
             }
-            const loanId = parseInt(this.getAttribute('data-id'));
+            const loanId = this.getAttribute('data-id');
             showInvestModal(loanId);
         });
     });
@@ -1027,14 +1010,10 @@ function showLoanDetails(loanId) {
     const loan = loans.find(l => l.id == loanId);
     if (!loan) return;
     
-    const monthlyPayment = loan.monthly_payment || loan.monthlyPayment;
+    const monthlyPayment = loan.monthly_payment;
     const progress = (loan.funded / loan.amount) * 100;
     const totalRepayment = monthlyPayment * loan.term;
     const totalInterest = totalRepayment - loan.amount;
-    const monthlyInterest = totalInterest / loan.term;
-    const createdDate = new Date(loan.date);
-    const today = new Date();
-    const daysSinceCreation = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
     
     const documentStatus = loan.documents ?
         '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> Documents Uploaded</span>' :
@@ -1049,21 +1028,21 @@ function showLoanDetails(loanId) {
                     <i class="fas fa-id-card" style="color: #3498db;"></i>
                     <div class="document-info">
                         <div class="document-name">Aadhaar Card</div>
-                        <div class="document-meta">${loan.documents.aadhaar.name} • ${(loan.documents.aadhaar.size / 1024).toFixed(2)} KB</div>
+                        <div class="document-meta">${loan.documents.aadhaar.name}</div>
                     </div>
-                    <button onclick="openDocumentInBrowser('aadhaar', ${loan.id})" class="view-document" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
-                        <i class="fas fa-external-link-alt"></i> View in Browser
-                    </button>
+                    <a href="${loan.documents.aadhaar.url}" target="_blank" class="view-document" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
+                        <i class="fas fa-external-link-alt"></i> View
+                    </a>
                 </div>
                 <div class="document-item">
                     <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
                     <div class="document-info">
                         <div class="document-name">Signed Undertaking</div>
-                        <div class="document-meta">${loan.documents.undertaking.name} • ${(loan.documents.undertaking.size / 1024).toFixed(2)} KB</div>
+                        <div class="document-meta">${loan.documents.undertaking.name}</div>
                     </div>
-                    <button onclick="openDocumentInBrowser('undertaking', ${loan.id})" class="view-document" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
-                        <i class="fas fa-external-link-alt"></i> View in Browser
-                    </button>
+                    <a href="${loan.documents.undertaking.url}" target="_blank" class="view-document" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
+                        <i class="fas fa-external-link-alt"></i> View
+                    </a>
                 </div>
             </div>
         `;
@@ -1080,8 +1059,6 @@ function showLoanDetails(loanId) {
             <p><strong>Monthly Payment:</strong> ₹${monthlyPayment.toLocaleString()}</p>
             <p><strong>Total Repayment:</strong> ₹${totalRepayment.toLocaleString()}</p>
             <p><strong>Total Interest:</strong> ₹${totalInterest.toLocaleString()}</p>
-            <p><strong>Monthly Interest:</strong> ₹${monthlyInterest.toLocaleString()}</p>
-            <p><strong>Created:</strong> ${loan.date} (${daysSinceCreation} days ago)</p>
             <p><strong>Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
             <p><strong>KYC Status:</strong> ${documentStatus}</p>
             <p><strong>Funded:</strong> ${progress.toFixed(1)}% (₹${loan.funded.toLocaleString()})</p>
@@ -1092,22 +1069,12 @@ function showLoanDetails(loanId) {
         ${documentsHtml}
         <h4 style="margin-top: 1.5rem;">Investors</h4>
         ${loan.investors && loan.investors.length > 0 ?
-            loan.investors.map(inv => `<p>${inv.investor}: ₹${inv.amount.toLocaleString()} ${inv.paymentId ? '<small style="color: #666;">(Razorpay)</small>' : ''}</p>`).join('') :
+            loan.investors.map(inv => `<p>${inv.investor}: ₹${inv.amount.toLocaleString()}</p>`).join('') :
             '<p>No investors yet</p>'
         }
-        ${currentUser && currentUser.username !== loan.borrower && loan.status === 'active' ?
-            `<button class="btn btn-accent invest-btn" data-id="${loan.id}" style="margin-top: 1.5rem;">Invest in this Loan</button>` : ''}
     `;
     
     document.getElementById('loan-detail-modal').style.display = 'flex';
-    
-    const investBtn = document.querySelector('#loan-detail-content .invest-btn');
-    if (investBtn) {
-        investBtn.addEventListener('click', function () {
-            document.getElementById('loan-detail-modal').style.display = 'none';
-            showInvestModal(loanId);
-        });
-    }
 }
 
 function showInvestModal(loanId) {
@@ -1126,17 +1093,163 @@ function showInvestModal(loanId) {
         investAmount.setAttribute('max', remaining);
         investAmount.setAttribute('placeholder', `Max: ₹${remaining.toLocaleString()}`);
     }
-
-    const monthlyPayment = loan.monthly_payment || loan.monthlyPayment;
     
     document.getElementById('invest-loan-purpose').textContent = `Purpose: ${loan.purpose}`;
     document.getElementById('invest-loan-amount').textContent = `Total Amount: ₹${loan.amount.toLocaleString()}`;
     document.getElementById('invest-loan-term').textContent = `Term: ${loan.term} months`;
-    document.getElementById('invest-monthly-payment').textContent = `Monthly Payment: ₹${monthlyPayment.toLocaleString()}`;
+    document.getElementById('invest-monthly-payment').textContent = `Monthly Payment: ₹${loan.monthly_payment.toLocaleString()}`;
 
     document.getElementById('invest-form').setAttribute('data-loan-id', loanId);
     document.getElementById('invest-modal').style.display = 'flex';
 }
+
+// ============================================
+// INVESTMENT WITH RAZORPAY
+// ============================================
+
+async function investInLoan(loanId, amount, paymentResponse) {
+    const loan = loans.find(l => l.id == loanId);
+    if (!loan) return;
+    
+    try {
+        // Update loan
+        const newFunded = loan.funded + parseInt(amount);
+        const newStatus = newFunded >= loan.amount ? 'funded' : 'active';
+        
+        const newInvestors = [...(loan.investors || []), {
+            investor: currentUser.username,
+            amount: parseInt(amount),
+            paymentId: paymentResponse.razorpay_payment_id,
+            date: new Date().toISOString()
+        }];
+        
+        // Update loan in database
+        const { error: loanError } = await supabase
+            .from('loans')
+            .update({
+                funded: newFunded,
+                status: newStatus,
+                investors: newInvestors
+            })
+            .eq('id', loanId);
+        
+        if (loanError) throw loanError;
+        
+        // Update user balance
+        const newBalance = currentUser.balance - parseInt(amount);
+        const { error: userError } = await supabase
+            .from('users')
+            .update({ balance: newBalance })
+            .eq('id', currentUser.id);
+        
+        if (userError) throw userError;
+        
+        // Create investment record
+        const investment = {
+            loan_id: loanId,
+            investor: currentUser.username,
+            investor_id: currentUser.id,
+            amount: parseInt(amount),
+            date: new Date().toISOString().split('T')[0],
+            expected_return: Math.round(parseInt(amount) * (1 + 8 / 100 * loan.term / 12)),
+            status: 'active',
+            payment_id: paymentResponse.razorpay_payment_id,
+            payment_method: 'Razorpay',
+            created_at: new Date().toISOString()
+        };
+        
+        const { error: invError } = await supabase
+            .from('investments')
+            .insert([investment]);
+        
+        if (invError) throw invError;
+        
+        // Update local user balance
+        currentUser.balance = newBalance;
+        
+        document.getElementById('invest-modal').style.display = 'none';
+        
+        showNotification(`Successfully invested ₹${amount} in ${loan.purpose}!`);
+        
+        // Refresh data
+        await loadLoansRealtime();
+        await loadInvestmentsRealtime();
+        
+    } catch (error) {
+        console.error('Investment error:', error);
+        showNotification('Investment failed: ' + error.message);
+    }
+}
+
+document.getElementById('razorpay-pay-btn')?.addEventListener('click', function () {
+    if (!currentUser) {
+        showNotification('Please login first');
+        document.getElementById('invest-modal').style.display = 'none';
+        document.getElementById('login-modal').style.display = 'flex';
+        return;
+    }
+    
+    const amount = document.getElementById('invest-amount').value;
+    const loanId = document.getElementById('invest-form').getAttribute('data-loan-id');
+    const loan = loans.find(l => l.id == loanId);
+    
+    if (!amount || amount < 1000) {
+        showNotification('Please enter minimum investment amount of ₹1000');
+        return;
+    }
+    
+    if (!loan) {
+        showNotification('Loan not found');
+        return;
+    }
+    
+    const remaining = loan.amount - loan.funded;
+    if (amount > remaining) {
+        showNotification(`Amount exceeds remaining loan amount of ₹${remaining}`);
+        return;
+    }
+    
+    if (amount > currentUser.balance) {
+        showNotification('Insufficient balance. Please add funds to your account.');
+        return;
+    }
+    
+    // Initialize Razorpay payment
+    const options = {
+        key: RAZORPAY_KEY_ID,
+        amount: amount * 100,
+        currency: 'INR',
+        name: 'FriendFunds',
+        description: `Investment in ${loan.purpose}`,
+        image: 'https://friendfunds.in/logo.png',
+        handler: function (response) {
+            investInLoan(loanId, amount, response);
+        },
+        prefill: {
+            name: currentUser.username,
+            email: currentUser.email,
+            contact: ''
+        },
+        notes: {
+            address: 'FriendFunds Investment'
+        },
+        theme: {
+            color: '#3498db'
+        },
+        modal: {
+            ondismiss: function () {
+                showNotification('Payment cancelled');
+            }
+        }
+    };
+    
+    const rzp = new Razorpay(options);
+    rzp.open();
+});
+
+// ============================================
+// USER DASHBOARD FUNCTIONS
+// ============================================
 
 function renderUserDashboard() {
     if (!currentUser) return;
@@ -1145,6 +1258,7 @@ function renderUserDashboard() {
     const userInvestmentsContainer = document.getElementById('user-investments-container');
     const userProfileContainer = document.getElementById('user-profile-container');
 
+    // Render user loans
     const userLoans = loans.filter(loan => loan.borrower === currentUser.username);
     userLoansContainer.innerHTML = '';
 
@@ -1153,8 +1267,6 @@ function renderUserDashboard() {
     } else {
         userLoans.forEach(loan => {
             const progress = (loan.funded / loan.amount) * 100;
-            const monthlyPayment = loan.monthly_payment || loan.monthlyPayment;
-            const totalRepayment = monthlyPayment * loan.term;
             const element = document.createElement('div');
             element.className = 'loan-request';
             element.innerHTML = `
@@ -1162,8 +1274,7 @@ function renderUserDashboard() {
                 <p><strong>Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
                 <p><strong>Funded:</strong> ${progress.toFixed(1)}%</p>
                 <p><strong>Term:</strong> ${loan.term} months</p>
-                <p><strong>Monthly Payment:</strong> ₹${monthlyPayment.toLocaleString()}</p>
-                <p><strong>Total Repayment:</strong> ₹${totalRepayment.toLocaleString()}</p>
+                <p><strong>Monthly Payment:</strong> ₹${loan.monthly_payment.toLocaleString()}</p>
                 <p><strong>Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
                 <p><strong>Documents:</strong> ${loan.documents ?
                     '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> Uploaded</span>' :
@@ -1179,12 +1290,13 @@ function renderUserDashboard() {
 
         userLoansContainer.querySelectorAll('.view-loan').forEach(button => {
             button.addEventListener('click', function () {
-                const loanId = parseInt(this.getAttribute('data-id'));
+                const loanId = this.getAttribute('data-id');
                 showLoanDetails(loanId);
             });
         });
     }
 
+    // Render user investments
     const userInvestments = investments.filter(inv => inv.investor === currentUser.username);
     userInvestmentsContainer.innerHTML = '';
 
@@ -1199,27 +1311,16 @@ function renderUserDashboard() {
             element.innerHTML = `
                 <h4>${loan.purpose} by ${loan.borrower}</h4>
                 <p><strong>Invested Amount:</strong> ₹${investment.amount.toLocaleString()}</p>
-                <p><strong>Expected Return:</strong> ₹${investment.expected_return?.toLocaleString() || investment.expectedReturn?.toLocaleString()}</p>
+                <p><strong>Expected Return:</strong> ₹${investment.expected_return?.toLocaleString()}</p>
                 <p><strong>Payment Method:</strong> ${investment.payment_method || 'Wallet'}</p>
                 ${investment.payment_id ? `<p><small>Payment ID: ${investment.payment_id}</small></p>` : ''}
-                <p><strong>Borrower KYC:</strong> ${loan.documents ?
-                    '<span style="color: #2ecc71;">Verified</span>' :
-                    '<span style="color: #e74c3c;">Pending</span>'}
-                </p>
                 <p><strong>Status:</strong> <span style="color: ${investment.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${investment.status}</span></p>
-                <button class="btn btn-primary view-investment" data-id="${investment.id}">View Details</button>
             `;
             userInvestmentsContainer.appendChild(element);
         });
-
-        userInvestmentsContainer.querySelectorAll('.view-investment').forEach(button => {
-            button.addEventListener('click', function () {
-                const investmentId = parseInt(this.getAttribute('data-id'));
-                showInvestmentDetails(investmentId);
-            });
-        });
     }
 
+    // Render user profile
     const totalInvested = userInvestments.reduce((sum, inv) => sum + inv.amount, 0);
     const totalBorrowed = userLoans.reduce((sum, loan) => sum + loan.amount, 0);
     const kycBadge = currentUser.kyc_status === 'verified' ?
@@ -1234,7 +1335,6 @@ function renderUserDashboard() {
             <p><strong>Active Loans:</strong> ${userLoans.length} (₹${totalBorrowed.toLocaleString()})</p>
             <p><strong>Active Investments:</strong> ${userInvestments.length} (₹${totalInvested.toLocaleString()})</p>
             <p><strong>KYC Status:</strong> ${kycBadge}</p>
-            <p><strong>Documents:</strong> ${currentUser.documents ? currentUser.documents.length : 0}</p>
         </div>
         <div style="margin-top: 1.5rem;">
             <button class="btn btn-danger" id="logout-btn">Logout</button>
@@ -1274,9 +1374,9 @@ function renderUserDocuments() {
                             <div class="document-name">Aadhaar Card</div>
                             <div class="document-meta">${loan.documents.aadhaar.name}</div>
                         </div>
-                        <button onclick="openDocumentInBrowser('aadhaar', ${loan.id})" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
-                            <i class="fas fa-external-link-alt"></i> View in Browser
-                        </button>
+                        <a href="${loan.documents.aadhaar.url}" target="_blank" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </a>
                     </div>
                     
                     <div class="document-item">
@@ -1285,9 +1385,9 @@ function renderUserDocuments() {
                             <div class="document-name">Signed Undertaking</div>
                             <div class="document-meta">${loan.documents.undertaking.name}</div>
                         </div>
-                        <button onclick="openDocumentInBrowser('undertaking', ${loan.id})" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
-                            <i class="fas fa-external-link-alt"></i> View in Browser
-                        </button>
+                        <a href="${loan.documents.undertaking.url}" target="_blank" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </a>
                     </div>
                 </div>
             `;
@@ -1298,54 +1398,8 @@ function renderUserDocuments() {
     container.innerHTML = html;
 }
 
-function showInvestmentDetails(investmentId) {
-    const investment = investments.find(inv => inv.id == investmentId);
-    if (!investment) return;
-
-    const loan = loans.find(l => l.id == investment.loan_id);
-    if (!loan) return;
-
-    const totalReturn = investment.expected_return || investment.expectedReturn;
-    const profit = totalReturn - investment.amount;
-    const roi = (profit / investment.amount) * 100;
-    const monthlyPayment = loan.monthly_payment || loan.monthlyPayment;
-    const monthlyReturn = (totalReturn - investment.amount) / loan.term;
-
-    document.getElementById('loan-detail-title').textContent = `Investment Details: ${loan.purpose}`;
-    document.getElementById('loan-detail-content').innerHTML = `
-        <div class="loan-details">
-            <p><strong>Loan Purpose:</strong> ${loan.purpose}</p>
-            <p><strong>Borrower:</strong> ${loan.borrower}</p>
-            <p><strong>Investment Amount:</strong> ₹${investment.amount.toLocaleString()}</p>
-            <p><strong>Investment Date:</strong> ${investment.date}</p>
-            <p><strong>Payment Method:</strong> ${investment.payment_method || 'Wallet'}</p>
-            ${investment.payment_id ? `<p><small>Payment ID: ${investment.payment_id}</small></p>` : ''}
-            <p><strong>Loan Term:</strong> ${loan.term} months</p>
-            <p><strong>Interest Rate:</strong> ${loan.interest}% per annum</p>
-            <p><strong>Expected Total Return:</strong> ₹${totalReturn.toLocaleString()}</p>
-            <p><strong>Expected Profit:</strong> ₹${profit.toLocaleString()}</p>
-            <p><strong>ROI:</strong> ${roi.toFixed(2)}%</p>
-            <p><strong>Monthly Return:</strong> ₹${monthlyReturn.toLocaleString()}</p>
-            <p><strong>Borrower KYC:</strong> ${loan.documents ?
-                '<span style="color: #2ecc71;">Verified</span>' :
-                '<span style="color: #e74c3c;">Pending</span>'}
-            </p>
-            <p><strong>Status:</strong> <span style="color: ${investment.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${investment.status}</span></p>
-        </div>
-        <h4 style="margin-top: 1.5rem;">Loan Details</h4>
-        <div class="loan-details">
-            <p><strong>Total Loan Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
-            <p><strong>Amount Funded:</strong> ₹${loan.funded.toLocaleString()} (${((loan.funded / loan.amount) * 100).toFixed(1)}%)</p>
-            <p><strong>Monthly Payment:</strong> ₹${monthlyPayment.toLocaleString()}</p>
-            <p><strong>Loan Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
-        </div>
-    `;
-
-    document.getElementById('loan-detail-modal').style.display = 'flex';
-}
-
 // ============================================
-// UI FUNCTIONS (EXACTLY AS YOUR ORIGINAL)
+// UI FUNCTIONS
 // ============================================
 
 function showSection(target) {
@@ -1355,22 +1409,28 @@ function showSection(target) {
         return;
     }
 
+    // Hide all sections
     document.querySelectorAll('section').forEach(section => {
         section.style.display = 'none';
     });
 
+    // Show target section
     if (target === 'home') {
         document.querySelector('.hero').style.display = 'block';
         document.querySelector('.features').style.display = 'block';
         document.getElementById('dashboard').style.display = 'block';
+        document.getElementById('user-dashboard').style.display = 'none';
     } else if (target === 'dashboard') {
         document.getElementById('user-dashboard').style.display = 'block';
+        document.querySelector('.hero').style.display = 'none';
+        document.querySelector('.features').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'none';
         renderUserDashboard();
-    } else {
-        document.getElementById(target).style.display = 'block';
+        renderUserDocuments();
     }
 
-    document.querySelector('.nav-links').classList.remove('active');
+    // Close mobile menu
+    document.querySelector('.nav-links')?.classList.remove('active');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -1392,32 +1452,13 @@ function updateUIAfterLogin() {
     const loginBtn = document.getElementById('login-btn');
     if (loginBtn) {
         loginBtn.textContent = 'Logout';
-        
-        loginBtn.replaceWith(loginBtn.cloneNode(true));
-        const newLoginBtn = document.getElementById('login-btn');
-        
-        newLoginBtn.addEventListener('click', function (e) {
+        loginBtn.removeEventListener('click', loginBtn.click);
+        loginBtn.addEventListener('click', function (e) {
             e.preventDefault();
             logout();
         });
     }
-    document.getElementById('user-dashboard').style.display = 'block';
-    renderUserDashboard();
-    renderUserDocuments();
-}
-
-function updateUIAfterLogout() {
-    const loginBtn = document.getElementById('login-btn');
-    if (loginBtn) {
-        loginBtn.textContent = 'Login';
-        loginBtn.replaceWith(loginBtn.cloneNode(true));
-        const newLoginBtn = document.getElementById('login-btn');
-        newLoginBtn.addEventListener('click', function (e) {
-            e.preventDefault();
-            document.getElementById('login-modal').style.display = 'flex';
-        });
-    }
-    document.getElementById('user-dashboard').style.display = 'none';
+    showSection('dashboard');
 }
 
 // ============================================
@@ -1425,7 +1466,7 @@ function updateUIAfterLogout() {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', function () {
-    console.log("🚀 Starting FriendFunds with Supabase...");
+    console.log("🚀 Starting FriendFunds with Supabase Storage...");
     
     // DOM Elements
     const loginBtn = document.getElementById('login-btn');
@@ -1436,7 +1477,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const investModal = document.getElementById('invest-modal');
     const agreementModal = document.getElementById('loan-agreement-modal');
     const successModal = document.getElementById('upload-success-modal');
-    const documentViewerModal = document.getElementById('document-viewer-modal');
     const getStartedBtn = document.getElementById('get-started-btn');
     const learnMoreBtn = document.getElementById('learn-more-btn');
     const registerLink = document.getElementById('register-link');
@@ -1445,10 +1485,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const closeButtons = document.querySelectorAll('.close');
     const navLinks = document.querySelectorAll('.nav-link');
     const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tab-content');
     const menuToggle = document.querySelector('.menu-toggle');
     const passwordToggles = document.querySelectorAll('.password-toggle');
-    const closeDocumentViewer = document.getElementById('close-document-viewer');
     const cancelBtn = document.getElementById('cancel-agreement');
     const closeAgreement = document.getElementById('close-agreement');
     const successOkBtn = document.getElementById('success-ok-btn');
@@ -1541,16 +1579,8 @@ document.addEventListener('DOMContentLoaded', function () {
             investModal.style.display = 'none';
             if (agreementModal) agreementModal.style.display = 'none';
             if (successModal) successModal.style.display = 'none';
-            if (documentViewerModal) documentViewerModal.style.display = 'none';
         });
     });
-
-    // Close document viewer
-    if (closeDocumentViewer) {
-        closeDocumentViewer.addEventListener('click', function () {
-            documentViewerModal.style.display = 'none';
-        });
-    }
 
     // Navigation
     navLinks.forEach(link => {
@@ -1566,7 +1596,7 @@ document.addEventListener('DOMContentLoaded', function () {
         tab.addEventListener('click', function () {
             const tabId = this.getAttribute('data-tab');
             tabs.forEach(t => t.classList.remove('active'));
-            tabContents.forEach(tc => tc.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
             this.classList.add('active');
             document.getElementById(`${tabId}-tab`).classList.add('active');
             
@@ -1580,6 +1610,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (cancelBtn) {
         cancelBtn.addEventListener('click', function () {
             agreementModal.style.display = 'none';
+            resetUploads();
         });
     }
 
@@ -1587,6 +1618,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (closeAgreement) {
         closeAgreement.addEventListener('click', function () {
             agreementModal.style.display = 'none';
+            resetUploads();
         });
     }
 
@@ -1634,8 +1666,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target === investModal) investModal.style.display = 'none';
         if (e.target === agreementModal) agreementModal.style.display = 'none';
         if (e.target === successModal) successModal.style.display = 'none';
-        if (e.target === documentViewerModal) documentViewerModal.style.display = 'none';
     });
     
-    console.log("✅ FriendFunds Supabase Ready!");
+    console.log("✅ FriendFunds with Supabase Storage Ready!");
 });
