@@ -1,20 +1,124 @@
-// ===== COMPLETE FRIENDFUNDS SCRIPT WITH SUPABASE =====
-// This contains ALL original functionality - login, loans, investments, documents, etc.
+// Data storage
+let users = JSON.parse(localStorage.getItem('friendlend_users')) || [];
+let loans = JSON.parse(localStorage.getItem('friendlend_loans')) || [];
+let investments = JSON.parse(localStorage.getItem('friendlend_investments')) || [];
+let payments = JSON.parse(localStorage.getItem('friendlend_payments')) || [];
+let userDocuments = JSON.parse(localStorage.getItem('friendlend_documents')) || {};
 
-// ===== SUPABASE SETUP =====
-// 🔴 REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
-const SUPABASE_URL = 'https://zjqdcuurearuxvxvejjj.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcWRjdXVyZWFydXh2eHZlampqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDg3MDAsImV4cCI6MjA4OTQyNDcwMH0.U7iTsV0NUlO0Tncuqjsy-9dPjltvmf4lQF4L1CrgENw';
+// Sample data if empty
+if (loans.length === 0) {
+    loans = [
+        {
+            id: 1,
+            borrower: 'Nirmal',
+            purpose: 'Education Fee',
+            amount: 15000,
+            term: 12,
+            interest: 8,
+            status: 'active',
+            date: '2023-09-15',
+            monthlyPayment: 1302,
+            funded: 8000,
+            investors: [],
+            documents: null,
+            agreementAccepted: false
+        },
+        {
+            id: 2,
+            borrower: 'Harsh',
+            purpose: 'Vacation',
+            amount: 8000,
+            term: 6,
+            interest: 8,
+            status: 'active',
+            date: '2023-10-05',
+            monthlyPayment: 1360,
+            funded: 3000,
+            investors: [],
+            documents: null,
+            agreementAccepted: false
+        },
+        {
+            id: 3,
+            borrower: 'Mohit',
+            purpose: 'Laptop Purchase',
+            amount: 25000,
+            term: 18,
+            interest: 8,
+            status: 'active',
+            date: '2023-10-20',
+            monthlyPayment: 1484,
+            funded: 12000,
+            investors: [],
+            documents: null,
+            agreementAccepted: false
+        },
+        {
+            id: 4,
+            borrower: 'Shubham',
+            purpose: 'Air condition Purchase',
+            amount: 35000,
+            term: 18,
+            interest: 8,
+            status: 'active',
+            date: '2023-10-20',
+            monthlyPayment: 2078,
+            funded: 15000,
+            investors: [],
+            documents: null,
+            agreementAccepted: false
+        }
+    ];
+    localStorage.setItem('friendlend_loans', JSON.stringify(loans));
+}
 
-// Initialize Supabase
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+if (users.length === 0) {
+    users = [
+        {
+            id: 1,
+            username: 'Nirmal',
+            password: 'password123',
+            email: 'Nirmal@example.com',
+            balance: 1000000,
+            rememberMe: false,
+            kycStatus: 'pending',
+            documents: []
+        },
+        {
+            id: 2,
+            username: 'Harsh',
+            password: 'password123',
+            email: 'Harsh@example.com',
+            balance: 1000000,
+            rememberMe: false,
+            kycStatus: 'pending',
+            documents: []
+        },
+        {
+            id: 3,
+            username: 'Mohit',
+            password: 'password123',
+            email: 'Mohit@example.com',
+            balance: 1000000,
+            rememberMe: false,
+            kycStatus: 'pending',
+            documents: []
+        },
+        {
+            id: 4,
+            username: 'Shubham',
+            password: 'password123',
+            email: 'Shubham@example.com',
+            balance: 1000000,
+            rememberMe: false,
+            kycStatus: 'pending',
+            documents: []
+        }
+    ];
+    localStorage.setItem('friendlend_users', JSON.stringify(users));
+}
 
-// ===== GLOBAL VARIABLES (EXACTLY LIKE YOUR ORIGINAL) =====
-let users = [];
-let loans = [];
-let investments = [];
-let payments = [];
-let userDocuments = {};
+// Global variables
 let currentUser = null;
 let updateInterval;
 let uploadedFiles = {
@@ -26,212 +130,8 @@ let currentLoanForInvestment = null;
 // Razorpay configuration
 const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE'; // Replace with your Razorpay key
 
-// ===== LOAD DATA FROM SUPABASE =====
-async function loadData() {
-    try {
-        // Load users
-        const { data: usersData, error: usersError } = await supabase
-            .from('users')
-            .select('*');
-        
-        if (usersError) throw usersError;
-        users = usersData || [];
-
-        // Load loans
-        const { data: loansData, error: loansError } = await supabase
-            .from('loans')
-            .select('*')
-            .order('id', { ascending: false });
-        
-        if (loansError) throw loansError;
-        loans = loansData || [];
-
-        // Load investments
-        const { data: investmentsData, error: investmentsError } = await supabase
-            .from('investments')
-            .select('*');
-        
-        if (investmentsError) throw investmentsError;
-        investments = investmentsData || [];
-
-        // Render everything
-        renderLoanRequests();
-        renderInvestmentOpportunities();
-        
-        // If user is logged in, update dashboard
-        if (currentUser) {
-            renderUserDashboard();
-        }
-        
-        console.log('Data loaded successfully');
-    } catch (error) {
-        console.error('Error loading data:', error);
-        showNotification('Error connecting to database');
-    }
-}
-
-// ===== LOGIN FUNCTION =====
-async function loginUser(usernameOrEmail, password) {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .or(`username.eq.${usernameOrEmail},email.eq.${usernameOrEmail}`)
-            .eq('password', password);
-
-        if (error) throw error;
-        return data[0] || null;
-    } catch (error) {
-        console.error('Login error:', error);
-        return null;
-    }
-}
-
-// ===== REGISTER FUNCTION =====
-async function registerUser(username, password, email) {
-    try {
-        // Check if username exists
-        const { data: existingUser } = await supabase
-            .from('users')
-            .select('*')
-            .eq('username', username);
-
-        if (existingUser && existingUser.length > 0) {
-            showNotification('Username already exists');
-            return null;
-        }
-
-        // Check if email exists
-        const { data: existingEmail } = await supabase
-            .from('users')
-            .select('*')
-            .eq('email', email);
-
-        if (existingEmail && existingEmail.length > 0) {
-            showNotification('Email already registered');
-            return null;
-        }
-
-        // Create new user
-        const { data, error } = await supabase
-            .from('users')
-            .insert([
-                {
-                    username: username,
-                    password: password,
-                    email: email,
-                    balance: 50000,
-                    kycStatus: 'pending',
-                    documents: []
-                }
-            ])
-            .select();
-
-        if (error) throw error;
-        return data[0];
-    } catch (error) {
-        console.error('Register error:', error);
-        showNotification('Registration failed');
-        return null;
-    }
-}
-
-// ===== CREATE LOAN FUNCTION =====
-async function createLoan(loanData) {
-    try {
-        const { data, error } = await supabase
-            .from('loans')
-            .insert([loanData])
-            .select();
-
-        if (error) throw error;
-        return data[0];
-    } catch (error) {
-        console.error('Create loan error:', error);
-        return null;
-    }
-}
-
-// ===== UPDATE LOAN FUNCTION =====
-async function updateLoan(loanId, updates) {
-    try {
-        const { data, error } = await supabase
-            .from('loans')
-            .update(updates)
-            .eq('id', loanId)
-            .select();
-
-        if (error) throw error;
-        return data[0];
-    } catch (error) {
-        console.error('Update loan error:', error);
-        return null;
-    }
-}
-
-// ===== CREATE INVESTMENT FUNCTION =====
-async function createInvestment(investmentData) {
-    try {
-        const { data, error } = await supabase
-            .from('investments')
-            .insert([investmentData])
-            .select();
-
-        if (error) throw error;
-        return data[0];
-    } catch (error) {
-        console.error('Create investment error:', error);
-        return null;
-    }
-}
-
-// ===== UPDATE USER FUNCTION =====
-async function updateUser(userId, updates) {
-    try {
-        const { data, error } = await supabase
-            .from('users')
-            .update(updates)
-            .eq('id', userId)
-            .select();
-
-        if (error) throw error;
-        return data[0];
-    } catch (error) {
-        console.error('Update user error:', error);
-        return null;
-    }
-}
-
-// ===== DOCUMENT UPLOAD FUNCTION =====
-async function uploadDocument(userId, loanId, file, documentType) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = async () => {
-            try {
-                const documentData = {
-                    name: file.name,
-                    type: file.type,
-                    size: file.size,
-                    dataUrl: reader.result,
-                    uploadedAt: new Date().toISOString()
-                };
-                resolve(documentData);
-            } catch (error) {
-                reject(error);
-            }
-        };
-        reader.onerror = error => reject(error);
-    });
-}
-
-// ===== INITIALIZE PAGE =====
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Content Loaded - Initializing...');
-    
-    // Load data from Supabase
-    loadData();
-    
+// Initialize the page
+document.addEventListener('DOMContentLoaded', function () {
     // DOM Elements
     const loginBtn = document.getElementById('login-btn');
     const loginModal = document.getElementById('login-modal');
@@ -263,6 +163,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const razorpayPayBtn = document.getElementById('razorpay-pay-btn');
     const closeDocumentViewer = document.getElementById('close-document-viewer');
 
+
+    // Initialize file upload handlers
+    initFileUploadHandlers();
+
     // Check saved user
     const savedUser = localStorage.getItem('friendlend_currentUser');
     const rememberMe = localStorage.getItem('friendlend_rememberMe') === 'true';
@@ -273,75 +177,69 @@ document.addEventListener('DOMContentLoaded', function() {
         showNotification(`Welcome back, ${currentUser.username}!`);
     }
 
-    // Initialize file upload handlers
-    initFileUploadHandlers();
+    // Initial render
+    renderLoanRequests();
+    renderInvestmentOpportunities();
+    startRealTimeUpdates();
 
-    // ===== LOGIN BUTTON - DIRECT WORKING CODE =====
+    // Login button
     if (loginBtn) {
-        console.log('Login button found, attaching event');
-        loginBtn.onclick = function(e) {
+        loginBtn.addEventListener('click', function (e) {
             e.preventDefault();
-            console.log('Login button clicked');
-            if (loginModal) {
-                loginModal.style.display = 'flex';
-            } else {
-                console.error('Login modal not found');
-            }
-        };
-    } else {
-        console.error('Login button not found! Check ID in HTML');
+            loginModal.style.display = 'flex';
+        });
     }
 
-    // ===== GET STARTED BUTTON =====
+    // Get Started button
     if (getStartedBtn) {
-        getStartedBtn.onclick = function(e) {
+        getStartedBtn.addEventListener('click', function (e) {
             e.preventDefault();
             if (currentUser) {
                 showSection('dashboard');
             } else {
                 loginModal.style.display = 'flex';
             }
-        };
+        });
     }
 
-    // ===== LEARN MORE BUTTON =====
+    // Learn More button
     if (learnMoreBtn) {
-        learnMoreBtn.onclick = function(e) {
+        learnMoreBtn.addEventListener('click', function (e) {
             e.preventDefault();
             document.querySelector('.features').scrollIntoView({ behavior: 'smooth' });
-        };
+        });
     }
 
-    // ===== REGISTER LINK =====
+    // Register link
     if (registerLink) {
-        registerLink.onclick = function(e) {
+        registerLink.addEventListener('click', function (e) {
             e.preventDefault();
             loginModal.style.display = 'none';
             registerModal.style.display = 'flex';
-        };
+        });
     }
 
-    // ===== FORGOT PASSWORD LINK =====
+    // Forgot password link
     if (forgotPasswordLink) {
-        forgotPasswordLink.onclick = function(e) {
+        forgotPasswordLink.addEventListener('click', function (e) {
             e.preventDefault();
             loginModal.style.display = 'none';
             forgotPasswordModal.style.display = 'flex';
-        };
+        });
     }
 
-    // ===== BACK TO LOGIN LINK =====
+    // Back to login link
     if (backToLoginLink) {
-        backToLoginLink.onclick = function(e) {
+        backToLoginLink.addEventListener('click', function (e) {
             e.preventDefault();
             forgotPasswordModal.style.display = 'none';
             loginModal.style.display = 'flex';
-        };
+        });
     }
 
-    // ===== CLOSE BUTTONS =====
+    // Close buttons
     closeButtons.forEach(button => {
-        button.onclick = function() {
+        button.addEventListener('click', function () {
             loginModal.style.display = 'none';
             registerModal.style.display = 'none';
             forgotPasswordModal.style.display = 'none';
@@ -350,49 +248,53 @@ document.addEventListener('DOMContentLoaded', function() {
             if (agreementModal) agreementModal.style.display = 'none';
             if (successModal) successModal.style.display = 'none';
             if (documentViewerModal) documentViewerModal.style.display = 'none';
-        };
+        });
     });
 
-    // ===== CLOSE DOCUMENT VIEWER =====
+    // Close document viewer
     if (closeDocumentViewer) {
-        closeDocumentViewer.onclick = function() {
+        closeDocumentViewer.addEventListener('click', function () {
             documentViewerModal.style.display = 'none';
-        };
+        });
     }
 
-    // ===== NAVIGATION =====
+    // Navigation
     navLinks.forEach(link => {
-        link.onclick = function(e) {
+        link.addEventListener('click', function (e) {
             e.preventDefault();
             const target = this.getAttribute('data-target');
             showSection(target);
-        };
+        });
     });
 
-    // ===== TABS =====
+    // Tabs
     tabs.forEach(tab => {
-        tab.onclick = function() {
+        tab.addEventListener('click', function () {
             const tabId = this.getAttribute('data-tab');
             tabs.forEach(t => t.classList.remove('active'));
             tabContents.forEach(tc => tc.classList.remove('active'));
             this.classList.add('active');
             document.getElementById(`${tabId}-tab`).classList.add('active');
 
+            // If documents tab, render user documents
             if (tabId === 'documents' && currentUser) {
                 renderUserDocuments();
             }
-        };
+        });
     });
 
-    // ===== LOGIN FORM =====
+    // Login form
     if (loginForm) {
-        loginForm.onsubmit = async function(e) {
+        loginForm.addEventListener('submit', function (e) {
             e.preventDefault();
             const usernameOrEmail = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
 
-            const user = await loginUser(usernameOrEmail, password);
+            const user = users.find(u =>
+                (u.username === usernameOrEmail || u.email === usernameOrEmail) &&
+                u.password === password
+            );
 
             if (user) {
                 currentUser = user;
@@ -404,12 +306,12 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 showNotification('Invalid username/email or password');
             }
-        };
+        });
     }
 
-    // ===== REGISTER FORM =====
+    // Register form
     if (registerForm) {
-        registerForm.onsubmit = async function(e) {
+        registerForm.addEventListener('submit', function (e) {
             e.preventDefault();
             const username = document.getElementById('new-username').value;
             const password = document.getElementById('new-password').value;
@@ -421,21 +323,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            const newUser = await registerUser(username, password, email);
-
-            if (newUser) {
-                registerModal.style.display = 'none';
-                registerForm.reset();
-                showNotification('Registration successful! Please login.');
-                document.getElementById('username').value = username;
-                loginModal.style.display = 'flex';
+            if (users.find(u => u.username === username)) {
+                showNotification('Username already exists');
+                return;
             }
-        };
+
+            if (users.find(u => u.email === email)) {
+                showNotification('Email already registered');
+                return;
+            }
+
+            const newUser = {
+                id: Date.now(),
+                username,
+                password,
+                email,
+                balance: 50000,
+                rememberMe: false,
+                kycStatus: 'pending',
+                documents: []
+            };
+
+            users.push(newUser);
+            localStorage.setItem('friendlend_users', JSON.stringify(users));
+            registerModal.style.display = 'none';
+            registerForm.reset();
+            showNotification('Registration successful! Please login.');
+            document.getElementById('username').value = username;
+            loginModal.style.display = 'flex';
+        });
     }
 
-    // ===== FORGOT PASSWORD FORM =====
+    // Forgot password form
     if (forgotPasswordForm) {
-        forgotPasswordForm.onsubmit = function(e) {
+        forgotPasswordForm.addEventListener('submit', function (e) {
             e.preventDefault();
             const email = document.getElementById('reset-email').value;
             const user = users.find(u => u.email === email);
@@ -446,12 +367,12 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 showNotification('No account found with that email address');
             }
-        };
+        });
     }
 
-    // ===== LOAN REQUEST FORM =====
+    // Loan request form
     if (loanRequestForm) {
-        loanRequestForm.onsubmit = function(e) {
+        loanRequestForm.addEventListener('submit', function (e) {
             e.preventDefault();
 
             if (!currentUser) {
@@ -467,117 +388,290 @@ document.addEventListener('DOMContentLoaded', function() {
             const monthlyInterest = 8 / 12 / 100;
             const monthlyPayment = amount * monthlyInterest * Math.pow(1 + monthlyInterest, term) / (Math.pow(1 + monthlyInterest, term) - 1);
 
+            // Store in hidden fields
             document.getElementById('agreement-purpose').value = purpose;
             document.getElementById('agreement-amount').value = amount;
             document.getElementById('agreement-term').value = term;
             document.getElementById('agreement-monthly-payment').value = Math.round(monthlyPayment);
 
+            // Update summary
             document.getElementById('summary-purpose').textContent = purpose;
             document.getElementById('summary-amount').textContent = amount.toLocaleString();
             document.getElementById('summary-term').textContent = term;
             document.getElementById('summary-monthly').textContent = Math.round(monthlyPayment).toLocaleString();
 
+            // Reset file uploads and signature
             resetUploads();
 
+            // Show agreement modal
             if (agreementModal) {
                 agreementModal.style.display = 'flex';
             }
-        };
+        });
     }
 
-    // ===== AGREEMENT FORM =====
+
+    // Agreement form submit
     if (agreementForm) {
-        agreementForm.onsubmit = async function(e) {
+        agreementForm.addEventListener('submit', function (e) {
             e.preventDefault();
 
-            if (!uploadedFiles.aadhaar || !uploadedFiles.undertaking) {
-                showNotification('Please upload all required documents');
+            // Check if all documents are uploaded
+            if (!uploadedFiles.aadhaar) {
+                showNotification('Please upload your Aadhaar card');
                 return;
             }
 
-            if (!document.getElementById('agree-terms').checked) {
+            if (!uploadedFiles.undertaking) {
+                showNotification('Please upload signed undertaking');
+                return;
+            }
+
+
+            // Check if terms are agreed
+            const agreeTerms = document.getElementById('agree-terms');
+            if (!agreeTerms.checked) {
                 showNotification('Please agree to the terms and conditions');
                 return;
             }
 
+            // Get loan details
             const purpose = document.getElementById('agreement-purpose').value;
             const amount = parseInt(document.getElementById('agreement-amount').value);
             const term = parseInt(document.getElementById('agreement-term').value);
             const monthlyPayment = parseInt(document.getElementById('agreement-monthly-payment').value);
 
-            try {
-                // Create document URLs
-                const aadhaarUrl = await uploadDocument(currentUser.id, null, uploadedFiles.aadhaar, 'aadhaar');
-                const undertakingUrl = await uploadDocument(currentUser.id, null, uploadedFiles.undertaking, 'undertaking');
-
-                // Create new loan
-                const newLoan = {
-                    borrower: currentUser.username,
-                    purpose: purpose,
-                    amount: amount,
-                    term: term,
-                    interest: 8,
-                    status: 'active',
-                    date: new Date().toISOString().split('T')[0],
-                    monthlyPayment: monthlyPayment,
-                    funded: 0,
-                    investors: [],
-                    documents: {
-                        aadhaar: aadhaarUrl,
-                        undertaking: undertakingUrl
-                    },
-                    agreementAccepted: true,
-                    agreementDate: new Date().toISOString()
-                };
-
-                const createdLoan = await createLoan(newLoan);
-
-                if (createdLoan) {
-                    // Update user's KYC status
-                    await updateUser(currentUser.id, { kycStatus: 'verified' });
-                    currentUser.kycStatus = 'verified';
-
-                    // Close agreement modal
-                    agreementModal.style.display = 'none';
-
-                    // Refresh data
-                    await loadData();
-
-                    showNotification('Loan request created with documents successfully!');
-                }
-            } catch (error) {
-                console.error('Error creating loan:', error);
-                showNotification('Failed to create loan');
+            if (!currentUser) {
+                showNotification('Please login first');
+                agreementModal.style.display = 'none';
+                loginModal.style.display = 'flex';
+                return;
             }
-        };
+
+            // Create document URLs for browser viewing
+            const aadhaarUrl = createDocumentUrl(uploadedFiles.aadhaar, 'aadhaar');
+            const undertakingUrl = createDocumentUrl(uploadedFiles.undertaking, 'undertaking');
+
+            // Create document record with view URLs
+            const documentRecord = {
+                aadhaar: {
+                    name: uploadedFiles.aadhaar.name,
+                    type: uploadedFiles.aadhaar.type,
+                    size: uploadedFiles.aadhaar.size,
+                    dataUrl: aadhaarUrl,
+                    viewUrl: aadhaarUrl,
+                    uploadedAt: new Date().toISOString()
+                },
+                undertaking: {
+                    name: uploadedFiles.undertaking.name,
+                    type: uploadedFiles.undertaking.type,
+                    size: uploadedFiles.undertaking.size,
+                    dataUrl: undertakingUrl,
+                    viewUrl: undertakingUrl,
+                    uploadedAt: new Date().toISOString()
+                },
+      agreementAccepted: true,
+                agreementDate: new Date().toISOString()
+            };
+
+            // Create the new loan
+            const newLoan = {
+                id: Date.now(),
+                borrower: currentUser.username,
+                purpose: purpose,
+                amount: amount,
+                term: term,
+                interest: 8,
+                status: 'active',
+                date: new Date().toISOString().split('T')[0],
+                monthlyPayment: monthlyPayment,
+                funded: 0,
+                investors: [],
+                documents: documentRecord,
+                agreementAccepted: true,
+                agreementDate: new Date().toISOString()
+            };
+
+            loans.push(newLoan);
+            localStorage.setItem('friendlend_loans', JSON.stringify(loans));
+
+            // Update user's KYC status
+            const userIndex = users.findIndex(u => u.id === currentUser.id);
+            if (userIndex !== -1) {
+                users[userIndex].kycStatus = 'verified';
+                users[userIndex].documents = users[userIndex].documents || [];
+                users[userIndex].documents.push({
+                    type: 'loan_documents',
+                    loanId: newLoan.id,
+                    date: new Date().toISOString(),
+                    documents: {
+                        aadhaar: documentRecord.aadhaar,
+                        undertaking: documentRecord.undertaking
+                    }
+                });
+                currentUser = users[userIndex];
+                localStorage.setItem('friendlend_users', JSON.stringify(users));
+                localStorage.setItem('friendlend_currentUser', JSON.stringify(currentUser));
+            }
+
+            // Store documents in userDocuments for easy access
+            userDocuments[`${currentUser.username}_${newLoan.id}`] = documentRecord;
+            localStorage.setItem('friendlend_documents', JSON.stringify(userDocuments));
+
+            // Close agreement modal
+            agreementModal.style.display = 'none';
+
+            // Update success modal with document summary
+            const successSummary = document.getElementById('success-document-summary');
+            if (successSummary) {
+                successSummary.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-id-card" style="color: #3498db; width: 20px;"></i>
+                        <span style="font-size: 0.9rem;">Aadhaar: <strong>${uploadedFiles.aadhaar.name}</strong></span>
+                        <button onclick="openDocumentInBrowser('aadhaar', ${newLoan.id})" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <i class="fas fa-file-pdf" style="color: #e74c3c; width: 20px;"></i>
+                        <span style="font-size: 0.9rem;">Undertaking: <strong>${uploadedFiles.undertaking.name}</strong></span>
+                        <button onclick="openDocumentInBrowser('undertaking', ${newLoan.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </button>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+    <i class="fas fa-check-circle" style="color: #2ecc71; width: 20px;"></i>
+    <span style="font-size: 0.9rem;">Documents submitted successfully</span>
+</div>
+                    </div>
+                `;
+            }
+
+            // Show success modal
+            if (successModal) {
+                successModal.style.display = 'flex';
+            }
+
+            // Update displays
+            renderLoanRequests();
+            renderInvestmentOpportunities();
+
+            showNotification('Loan request created with documents successfully!');
+        });
     }
 
-    // ===== CANCEL AGREEMENT BUTTON =====
+    // Cancel agreement button
     const cancelBtn = document.getElementById('cancel-agreement');
     if (cancelBtn) {
-        cancelBtn.onclick = function() {
+        cancelBtn.addEventListener('click', function () {
             agreementModal.style.display = 'none';
-        };
+        });
     }
 
-    // ===== CLOSE AGREEMENT BUTTON =====
+    // Close agreement button
     const closeAgreement = document.getElementById('close-agreement');
     if (closeAgreement) {
-        closeAgreement.onclick = function() {
+        closeAgreement.addEventListener('click', function () {
             agreementModal.style.display = 'none';
-        };
+        });
     }
 
-    // ===== MOBILE MENU TOGGLE =====
+    // Success OK button
+    const successOkBtn = document.getElementById('success-ok-btn');
+    if (successOkBtn) {
+        successOkBtn.addEventListener('click', function () {
+            successModal.style.display = 'none';
+        });
+    }
+
+    // Close success button
+    const closeSuccess = document.getElementById('close-success');
+    if (closeSuccess) {
+        closeSuccess.addEventListener('click', function () {
+            successModal.style.display = 'none';
+        });
+    }
+
+    // Razorpay payment button
+    if (razorpayPayBtn) {
+        razorpayPayBtn.addEventListener('click', function () {
+            if (!currentUser) {
+                showNotification('Please login first');
+                investModal.style.display = 'none';
+                loginModal.style.display = 'flex';
+                return;
+            }
+
+            const amount = document.getElementById('invest-amount').value;
+            if (!amount || amount < 1000) {
+                showNotification('Please enter minimum investment amount of ₹1000');
+                return;
+            }
+
+            const loanId = investForm.getAttribute('data-loan-id');
+            const loan = loans.find(l => l.id == loanId);
+
+            if (!loan) {
+                showNotification('Loan not found');
+                return;
+            }
+
+            const remaining = loan.amount - loan.funded;
+            if (amount > remaining) {
+                showNotification(`Amount exceeds remaining loan amount of ₹${remaining}`);
+                return;
+            }
+
+            if (amount > currentUser.balance) {
+                showNotification('Insufficient balance. Please add funds to your account.');
+                return;
+            }
+
+            // Initialize Razorpay payment
+            const options = {
+                key: RAZORPAY_KEY_ID,
+                amount: amount * 100, // Amount in paise
+                currency: 'INR',
+                name: 'FriendFunds',
+                description: `Investment in ${loan.purpose}`,
+                image: 'https://friendfunds.in/logo.png',
+                handler: function (response) {
+                    // Payment successful
+                    processInvestment(loanId, amount, response);
+                },
+                prefill: {
+                    name: currentUser.username,
+                    email: currentUser.email,
+                    contact: ''
+                },
+                notes: {
+                    address: 'FriendFunds Investment'
+                },
+                theme: {
+                    color: '#3498db'
+                },
+                modal: {
+                    ondismiss: function () {
+                        showNotification('Payment cancelled');
+                    }
+                }
+            };
+
+            const rzp = new Razorpay(options);
+            rzp.open();
+        });
+    }
+
+    // Mobile menu toggle
     if (menuToggle) {
-        menuToggle.onclick = function() {
+        menuToggle.addEventListener('click', function () {
             document.querySelector('.nav-links').classList.toggle('active');
-        };
+        });
     }
 
-    // ===== PASSWORD VISIBILITY TOGGLE =====
+    // Password visibility toggle
     passwordToggles.forEach(toggle => {
-        toggle.onclick = function() {
+        toggle.addEventListener('click', function () {
             const input = this.previousElementSibling;
             if (input.type === 'password') {
                 input.type = 'text';
@@ -586,11 +680,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 input.type = 'password';
                 this.innerHTML = '<i class="far fa-eye"></i>';
             }
-        };
+        });
     });
 
-    // ===== CLOSE MODALS WHEN CLICKING OUTSIDE =====
-    window.onclick = function(e) {
+    // Close modals when clicking outside
+    window.addEventListener('click', function (e) {
         if (e.target === loginModal) loginModal.style.display = 'none';
         if (e.target === registerModal) registerModal.style.display = 'none';
         if (e.target === forgotPasswordModal) forgotPasswordModal.style.display = 'none';
@@ -599,81 +693,90 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === agreementModal) agreementModal.style.display = 'none';
         if (e.target === successModal) successModal.style.display = 'none';
         if (e.target === documentViewerModal) documentViewerModal.style.display = 'none';
-    };
-
-    // Start real-time updates
-    startRealTimeUpdates();
-    
-    console.log('Initialization complete');
+    });
 });
 
-// ===== SHOW SECTION =====
-function showSection(target) {
-    if (target === 'dashboard' && !currentUser) {
-        showNotification('Please login first to access the dashboard');
-        document.getElementById('login-modal').style.display = 'flex';
-        return;
+// Create document URL for browser viewing
+function createDocumentUrl(file, type) {
+    // Create a blob URL for the file
+    const blob = new Blob([file], { type: file.type });
+    return URL.createObjectURL(blob);
+}
+
+// Open document in new browser tab
+window.openDocumentInBrowser = function (docType, loanId) {
+    const loan = loans.find(l => l.id === loanId);
+    if (!loan || !loan.documents) return;
+
+    const documentData = loan.documents[docType];
+    if (!documentData) return;
+
+    // Open the document URL in a new tab
+    if (documentData.dataUrl) {
+        window.open(documentData.dataUrl, '_blank');
+    } else {
+        showNotification('Document URL not available');
+    }
+};
+
+
+// Process investment after payment
+function processInvestment(loanId, amount, paymentResponse) {
+    const loan = loans.find(l => l.id == loanId);
+    if (!loan) return;
+
+    // Update loan
+    loan.funded += parseInt(amount);
+    if (loan.funded >= loan.amount) {
+        loan.status = 'funded';
     }
 
-    document.querySelectorAll('section').forEach(section => {
-        section.style.display = 'none';
+    // Update user balance
+    currentUser.balance -= parseInt(amount);
+    users = users.map(u => u.id === currentUser.id ? currentUser : u);
+
+    // Create investment record
+    const investment = {
+        id: Date.now(),
+        loanId: loan.id,
+        investor: currentUser.username,
+        amount: parseInt(amount),
+        date: new Date().toISOString().split('T')[0],
+        expectedReturn: Math.round(parseInt(amount) * (1 + 8 / 100 * loan.term / 12)),
+        status: 'active',
+        paymentId: paymentResponse.razorpay_payment_id,
+        paymentMethod: 'Razorpay'
+    };
+
+    investments.push(investment);
+    loan.investors.push({
+        investor: currentUser.username,
+        amount: parseInt(amount),
+        paymentId: paymentResponse.razorpay_payment_id
     });
 
-    if (target === 'home') {
-        document.querySelector('.hero').style.display = 'block';
-        document.querySelector('.features').style.display = 'block';
-        document.getElementById('dashboard').style.display = 'block';
-    } else if (target === 'dashboard') {
-        document.getElementById('user-dashboard').style.display = 'block';
+    // Save all data
+    localStorage.setItem('friendlend_loans', JSON.stringify(loans));
+    localStorage.setItem('friendlend_users', JSON.stringify(users));
+    localStorage.setItem('friendlend_investments', JSON.stringify(investments));
+    localStorage.setItem('friendlend_currentUser', JSON.stringify(currentUser));
+
+    // Close invest modal
+    document.getElementById('invest-modal').style.display = 'none';
+
+    // Update displays
+    renderLoanRequests();
+    renderInvestmentOpportunities();
+
+    if (document.getElementById('user-dashboard').style.display === 'block') {
         renderUserDashboard();
-    } else {
-        document.getElementById(target).style.display = 'block';
     }
 
-    document.querySelector('.nav-links').classList.remove('active');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    showNotification(`Successfully invested ₹${amount} in ${loan.purpose} via Razorpay! Payment ID: ${paymentResponse.razorpay_payment_id}`);
+    simulateRealTimeUpdate();
 }
 
-// ===== SHOW NOTIFICATION =====
-function showNotification(message) {
-    const notification = document.getElementById('notification');
-    const notificationText = document.getElementById('notification-text');
-
-    if (notification && notificationText) {
-        notificationText.textContent = message;
-        notification.classList.add('show');
-
-        setTimeout(() => {
-            notification.classList.remove('show');
-        }, 3000);
-    }
-}
-
-// ===== UPDATE UI AFTER LOGIN =====
-function updateUIAfterLogin() {
-    const loginBtn = document.getElementById('login-btn');
-    if (loginBtn) {
-        loginBtn.textContent = 'Logout';
-
-        loginBtn.onclick = function(e) {
-            e.preventDefault();
-            currentUser = null;
-            localStorage.removeItem('friendlend_currentUser');
-            localStorage.removeItem('friendlend_rememberMe');
-            this.textContent = 'Login';
-            document.getElementById('user-dashboard').style.display = 'none';
-            showSection('home');
-            showNotification('Logged out successfully');
-
-            this.onclick = function(e) {
-                e.preventDefault();
-                document.getElementById('login-modal').style.display = 'flex';
-            };
-        };
-    }
-}
-
-// ===== INITIALIZE FILE UPLOAD HANDLERS =====
+// Initialize File Upload Handlers
 function initFileUploadHandlers() {
     const aadhaarUpload = document.getElementById('aadhaar-upload');
     const undertakingUpload = document.getElementById('undertaking-upload');
@@ -681,69 +784,70 @@ function initFileUploadHandlers() {
     const undertakingArea = document.getElementById('undertaking-upload-area');
 
     if (aadhaarArea && aadhaarUpload) {
-        aadhaarArea.onclick = (e) => {
+        aadhaarArea.addEventListener('click', (e) => {
             if (!e.target.classList.contains('remove-file')) {
                 aadhaarUpload.click();
             }
-        };
+        });
 
-        aadhaarUpload.onchange = function(e) {
+        aadhaarUpload.addEventListener('change', function (e) {
             handleFileUpload(this.files[0], 'aadhaar');
-        };
+        });
 
-        aadhaarArea.ondragover = (e) => {
+        // Drag and drop
+        aadhaarArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             aadhaarArea.style.borderColor = '#f39c12';
-        };
+        });
 
-        aadhaarArea.ondragleave = (e) => {
+        aadhaarArea.addEventListener('dragleave', (e) => {
             e.preventDefault();
             aadhaarArea.style.borderColor = '#3498db';
-        };
+        });
 
-        aadhaarArea.ondrop = (e) => {
+        aadhaarArea.addEventListener('drop', (e) => {
             e.preventDefault();
             aadhaarArea.style.borderColor = '#3498db';
             const file = e.dataTransfer.files[0];
             if (file) {
                 handleFileUpload(file, 'aadhaar');
             }
-        };
+        });
     }
 
     if (undertakingArea && undertakingUpload) {
-        undertakingArea.onclick = (e) => {
+        undertakingArea.addEventListener('click', (e) => {
             if (!e.target.classList.contains('remove-file')) {
                 undertakingUpload.click();
             }
-        };
+        });
 
-        undertakingUpload.onchange = function(e) {
+        undertakingUpload.addEventListener('change', function (e) {
             handleFileUpload(this.files[0], 'undertaking');
-        };
+        });
 
-        undertakingArea.ondragover = (e) => {
+        undertakingArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             undertakingArea.style.borderColor = '#f39c12';
-        };
+        });
 
-        undertakingArea.ondragleave = (e) => {
+        undertakingArea.addEventListener('dragleave', (e) => {
             e.preventDefault();
             undertakingArea.style.borderColor = '#3498db';
-        };
+        });
 
-        undertakingArea.ondrop = (e) => {
+        undertakingArea.addEventListener('drop', (e) => {
             e.preventDefault();
             undertakingArea.style.borderColor = '#3498db';
             const file = e.dataTransfer.files[0];
             if (file) {
                 handleFileUpload(file, 'undertaking');
             }
-        };
+        });
     }
 }
 
-// ===== HANDLE FILE UPLOAD =====
+// Handle File Upload
 function handleFileUpload(file, type) {
     if (!file) return;
 
@@ -770,7 +874,7 @@ function handleFileUpload(file, type) {
     }
 }
 
-// ===== UPDATE FILE PREVIEW =====
+// Update File Preview
 function updateFilePreview(file, type) {
     const preview = document.getElementById(`${type}-preview`);
     const area = document.getElementById(`${type}-upload-area`);
@@ -794,8 +898,8 @@ function updateFilePreview(file, type) {
     area.classList.add('has-file');
 }
 
-// ===== REMOVE FILE =====
-window.removeFile = function(type) {
+// Remove File (make global)
+window.removeFile = function (type) {
     if (type === 'aadhaar') {
         uploadedFiles.aadhaar = null;
         document.getElementById('aadhaar-upload').value = '';
@@ -826,7 +930,7 @@ window.removeFile = function(type) {
     }
 };
 
-// ===== RESET UPLOADS =====
+// Reset Uploads
 function resetUploads() {
     uploadedFiles = {
         aadhaar: null,
@@ -836,6 +940,7 @@ function resetUploads() {
     document.getElementById('aadhaar-upload').value = '';
     document.getElementById('undertaking-upload').value = '';
 
+    // Reset previews
     ['aadhaar', 'undertaking'].forEach(type => {
         const area = document.getElementById(`${type}-upload-area`);
         const preview = document.getElementById(`${type}-preview`);
@@ -860,7 +965,76 @@ function resetUploads() {
     });
 }
 
-// ===== RENDER LOAN REQUESTS =====
+// Show Section
+function showSection(target) {
+    if (target === 'dashboard' && !currentUser) {
+        showNotification('Please login first to access the dashboard');
+        document.getElementById('login-modal').style.display = 'flex';
+        return;
+    }
+
+    document.querySelectorAll('section').forEach(section => {
+        section.style.display = 'none';
+    });
+
+    if (target === 'home') {
+        document.querySelector('.hero').style.display = 'block';
+        document.querySelector('.features').style.display = 'block';
+        document.getElementById('dashboard').style.display = 'block';
+    } else if (target === 'dashboard') {
+        document.getElementById('user-dashboard').style.display = 'block';
+        renderUserDashboard();
+    } else {
+        document.getElementById(target).style.display = 'block';
+    }
+
+    document.querySelector('.nav-links').classList.remove('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Show Notification
+function showNotification(message) {
+    const notification = document.getElementById('notification');
+    const notificationText = document.getElementById('notification-text');
+
+    if (notification && notificationText) {
+        notificationText.textContent = message;
+        notification.classList.add('show');
+
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
+    }
+}
+
+// Update UI After Login
+function updateUIAfterLogin() {
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) {
+        loginBtn.textContent = 'Logout';
+
+        loginBtn.replaceWith(loginBtn.cloneNode(true));
+        const newLoginBtn = document.getElementById('login-btn');
+
+        newLoginBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            currentUser = null;
+            localStorage.removeItem('friendlend_currentUser');
+            localStorage.removeItem('friendlend_rememberMe');
+            this.textContent = 'Login';
+            document.getElementById('user-dashboard').style.display = 'none';
+            showSection('home');
+            showNotification('Logged out successfully');
+
+            this.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.getElementById('login-modal').style.display = 'flex';
+            });
+        });
+    }
+}
+
+// Render Functions
 function renderLoanRequests() {
     const container = document.getElementById('active-loans-container');
     if (!container) return;
@@ -902,14 +1076,14 @@ function renderLoanRequests() {
     });
 
     document.querySelectorAll('.view-loan').forEach(button => {
-        button.onclick = function() {
+        button.addEventListener('click', function () {
             const loanId = parseInt(this.getAttribute('data-id'));
             showLoanDetails(loanId);
-        };
+        });
     });
 
     document.querySelectorAll('.invest-btn').forEach(button => {
-        button.onclick = function() {
+        button.addEventListener('click', function () {
             if (!currentUser) {
                 showNotification('Please login to invest');
                 document.getElementById('login-modal').style.display = 'flex';
@@ -917,11 +1091,10 @@ function renderLoanRequests() {
             }
             const loanId = parseInt(this.getAttribute('data-id'));
             showInvestModal(loanId);
-        };
+        });
     });
 }
 
-// ===== RENDER INVESTMENT OPPORTUNITIES =====
 function renderInvestmentOpportunities() {
     const container = document.getElementById('investment-opportunities-container');
     if (!container) return;
@@ -957,7 +1130,7 @@ function renderInvestmentOpportunities() {
     });
 
     document.querySelectorAll('.invest-btn').forEach(button => {
-        button.onclick = function() {
+        button.addEventListener('click', function () {
             if (!currentUser) {
                 showNotification('Please login to invest');
                 document.getElementById('login-modal').style.display = 'flex';
@@ -965,11 +1138,10 @@ function renderInvestmentOpportunities() {
             }
             const loanId = parseInt(this.getAttribute('data-id'));
             showInvestModal(loanId);
-        };
+        });
     });
 }
 
-// ===== SHOW LOAN DETAILS =====
 function showLoanDetails(loanId) {
     const loan = loans.find(l => l.id === loanId);
     if (!loan) return;
@@ -1010,7 +1182,6 @@ function showLoanDetails(loanId) {
                     <button onclick="openDocumentInBrowser('undertaking', ${loan.id})" class="view-document" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
                         <i class="fas fa-external-link-alt"></i> View in Browser
                     </button>
-                </div>
             </div>
         `;
     }
@@ -1049,14 +1220,13 @@ function showLoanDetails(loanId) {
 
     const investBtn = document.querySelector('#loan-detail-content .invest-btn');
     if (investBtn) {
-        investBtn.onclick = function() {
+        investBtn.addEventListener('click', function () {
             document.getElementById('loan-detail-modal').style.display = 'none';
             showInvestModal(loanId);
-        };
+        });
     }
 }
 
-// ===== SHOW INVEST MODAL =====
 function showInvestModal(loanId) {
     const loan = loans.find(l => l.id === loanId);
     if (!loan) return;
@@ -1083,7 +1253,6 @@ function showInvestModal(loanId) {
     document.getElementById('invest-modal').style.display = 'flex';
 }
 
-// ===== RENDER USER DASHBOARD =====
 function renderUserDashboard() {
     if (!currentUser) return;
 
@@ -1123,10 +1292,10 @@ function renderUserDashboard() {
         });
 
         userLoansContainer.querySelectorAll('.view-loan').forEach(button => {
-            button.onclick = function() {
+            button.addEventListener('click', function () {
                 const loanId = parseInt(this.getAttribute('data-id'));
                 showLoanDetails(loanId);
-            };
+            });
         });
     }
 
@@ -1158,10 +1327,10 @@ function renderUserDashboard() {
         });
 
         userInvestmentsContainer.querySelectorAll('.view-investment').forEach(button => {
-            button.onclick = function() {
+            button.addEventListener('click', function () {
                 const investmentId = parseInt(this.getAttribute('data-id'));
                 showInvestmentDetails(investmentId);
-            };
+            });
         });
     }
 
@@ -1188,7 +1357,7 @@ function renderUserDashboard() {
 
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
-        logoutBtn.onclick = function() {
+        logoutBtn.addEventListener('click', function () {
             currentUser = null;
             localStorage.removeItem('friendlend_currentUser');
             localStorage.removeItem('friendlend_rememberMe');
@@ -1196,11 +1365,11 @@ function renderUserDashboard() {
             document.getElementById('user-dashboard').style.display = 'none';
             showSection('home');
             showNotification('Logged out successfully');
-        };
+        });
     }
 }
 
-// ===== RENDER USER DOCUMENTS =====
+// Render user documents
 function renderUserDocuments() {
     const container = document.getElementById('user-documents-container');
     if (!container || !currentUser) return;
@@ -1251,42 +1420,27 @@ function renderUserDocuments() {
     container.innerHTML = html;
 }
 
-// ===== OPEN DOCUMENT IN BROWSER =====
-window.openDocumentInBrowser = function(docType, loanId) {
-    const loan = loans.find(l => l.id === loanId);
-    if (!loan || !loan.documents) return;
-
-    const documentData = loan.documents[docType];
-    if (!documentData || !documentData.dataUrl) return;
-
-    const newWindow = window.open();
-    if (documentData.type.startsWith('image/')) {
-        newWindow.document.write(`
-            <html>
-                <head><title>${documentData.name}</title></head>
-                <body style="margin:0; display:flex; justify-content:center; align-items:center; min-height:100vh;">
-                    <img src="${documentData.dataUrl}" style="max-width:100%; max-height:100vh;">
-                </body>
-            </html>
-        `);
-    } else {
-        newWindow.location.href = documentData.dataUrl;
-    }
-};
-
-// ===== START REAL-TIME UPDATES =====
 function startRealTimeUpdates() {
     updateInterval = setInterval(() => {
-        loadData();
+        loans = JSON.parse(localStorage.getItem('friendlend_loans')) || [];
+        investments = JSON.parse(localStorage.getItem('friendlend_investments')) || [];
+
+        if (document.getElementById('dashboard').style.display !== 'none' ||
+            document.getElementById('home').style.display !== 'none') {
+            renderLoanRequests();
+            renderInvestmentOpportunities();
+        }
+
+        if (document.getElementById('user-dashboard').style.display === 'block') {
+            renderUserDashboard();
+        }
     }, 10000);
 }
 
-// ===== SIMULATE REAL-TIME UPDATE =====
 function simulateRealTimeUpdate() {
     showNotification("Update sent to all users in real-time");
 }
 
-// ===== SHOW INVESTMENT DETAILS =====
 function showInvestmentDetails(investmentId) {
     const investment = investments.find(inv => inv.id === investmentId);
     if (!investment) return;
@@ -1315,8 +1469,8 @@ function showInvestmentDetails(investmentId) {
             <p><strong>ROI:</strong> ${roi.toFixed(2)}%</p>
             <p><strong>Monthly Return:</strong> ₹${monthlyReturn.toLocaleString()}</p>
             <p><strong>Borrower KYC:</strong> ${loan.documents ?
-                '<span style="color: #2ecc71;">Verified</span>' :
-                '<span style="color: #e74c3c;">Pending</span>'}
+            '<span style="color: #2ecc71;">Verified</span>' :
+            '<span style="color: #e74c3c;">Pending</span>'}
             </p>
             <p><strong>Status:</strong> <span style="color: ${investment.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${investment.status}</span></p>
         </div>
