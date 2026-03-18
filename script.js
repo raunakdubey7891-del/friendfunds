@@ -1004,44 +1004,58 @@ function renderInvestmentOpportunities() {
     });
 }
 
-function showLoanDetails(loanId) {
+// Update the showLoanDetails function to fetch documents from loan_documents table
+async function showLoanDetails(loanId) {
     const loan = loans.find(l => l.id == loanId);
     if (!loan) return;
+    
+    // Fetch documents for this loan
+    const { data: documents, error } = await supabase
+        .from('loan_documents')
+        .select('*')
+        .eq('loan_id', loanId);
     
     const monthlyPayment = loan.monthly_payment;
     const progress = (loan.funded / loan.amount) * 100;
     const totalRepayment = monthlyPayment * loan.term;
     const totalInterest = totalRepayment - loan.amount;
     
-    const documentStatus = loan.documents ?
+    const documentStatus = documents && documents.length > 0 ?
         '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> Documents Uploaded</span>' :
         '<span style="color: #e74c3c;"><i class="fas fa-times-circle"></i> Documents Pending</span>';
     
     let documentsHtml = '';
-    if (loan.documents) {
+    if (documents && documents.length > 0) {
+        const aadhaar = documents.find(d => d.document_type === 'aadhaar');
+        const undertaking = documents.find(d => d.document_type === 'undertaking');
+        
         documentsHtml = `
             <h4 style="margin-top: 1.5rem;">Documents (Click to View)</h4>
             <div class="document-viewer">
+                ${aadhaar ? `
                 <div class="document-item">
                     <i class="fas fa-id-card" style="color: #3498db;"></i>
                     <div class="document-info">
                         <div class="document-name">Aadhaar Card</div>
-                        <div class="document-meta">${loan.documents.aadhaar.name}</div>
+                        <div class="document-meta">${aadhaar.file_name}</div>
                     </div>
-                    <a href="${loan.documents.aadhaar.url}" target="_blank" class="view-document" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
+                    <a href="${aadhaar.public_url}" target="_blank" class="view-document" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
                         <i class="fas fa-external-link-alt"></i> View
                     </a>
                 </div>
+                ` : ''}
+                ${undertaking ? `
                 <div class="document-item">
                     <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
                     <div class="document-info">
                         <div class="document-name">Signed Undertaking</div>
-                        <div class="document-meta">${loan.documents.undertaking.name}</div>
+                        <div class="document-meta">${undertaking.file_name}</div>
                     </div>
-                    <a href="${loan.documents.undertaking.url}" target="_blank" class="view-document" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
+                    <a href="${undertaking.public_url}" target="_blank" class="view-document" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
                         <i class="fas fa-external-link-alt"></i> View
                     </a>
                 </div>
+                ` : ''}
             </div>
         `;
     }
@@ -1347,50 +1361,65 @@ function renderUserDashboard() {
     }
 }
 
-function renderUserDocuments() {
+// Update renderUserDocuments function
+async function renderUserDocuments() {
     const container = document.getElementById('user-documents-container');
     if (!container || !currentUser) return;
 
-    const userLoans = loans.filter(loan => loan.borrower === currentUser.username && loan.documents);
-
+    // Fetch all loans by this user
+    const userLoans = loans.filter(loan => loan.borrower === currentUser.username);
+    
     if (userLoans.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No documents uploaded yet.</p>';
+        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No loans found.</p>';
         return;
     }
 
     let html = '<div class="document-viewer">';
 
-    userLoans.forEach(loan => {
-        if (loan.documents) {
+    for (const loan of userLoans) {
+        // Fetch documents for this loan
+        const { data: documents } = await supabase
+            .from('loan_documents')
+            .select('*')
+            .eq('loan_id', loan.id);
+        
+        if (documents && documents.length > 0) {
+            const aadhaar = documents.find(d => d.document_type === 'aadhaar');
+            const undertaking = documents.find(d => d.document_type === 'undertaking');
+            
             html += `
                 <div style="background: #f8f9fa; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
                     <h4 style="margin: 0 0 1rem 0; color: #2c3e50;">Loan: ${loan.purpose} (₹${loan.amount.toLocaleString()})</h4>
                     
+                    ${aadhaar ? `
                     <div class="document-item">
                         <i class="fas fa-id-card" style="color: #3498db;"></i>
                         <div class="document-info">
                             <div class="document-name">Aadhaar Card</div>
-                            <div class="document-meta">${loan.documents.aadhaar.name}</div>
+                            <div class="document-meta">${aadhaar.file_name}</div>
                         </div>
-                        <a href="${loan.documents.aadhaar.url}" target="_blank" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
+                        <a href="${aadhaar.public_url}" target="_blank" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
                             <i class="fas fa-external-link-alt"></i> View
                         </a>
                     </div>
+                    ` : ''}
                     
+                    ${undertaking ? `
                     <div class="document-item">
                         <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
                         <div class="document-info">
                             <div class="document-name">Signed Undertaking</div>
-                            <div class="document-meta">${loan.documents.undertaking.name}</div>
+                            <div class="document-meta">${undertaking.file_name}</div>
                         </div>
-                        <a href="${loan.documents.undertaking.url}" target="_blank" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
+                        <a href="${undertaking.public_url}" target="_blank" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; text-decoration: none;">
                             <i class="fas fa-external-link-alt"></i> View
                         </a>
                     </div>
+                    ` : ''}
                 </div>
             `;
         }
-    });
+    }
 
     html += '</div>';
     container.innerHTML = html;
