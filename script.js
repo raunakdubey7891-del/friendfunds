@@ -520,6 +520,7 @@ document.getElementById('loan-request-form')?.addEventListener('submit', (e) => 
 
 // ============================================
 // SUBMIT LOAN AGREEMENT WITH FILE UPLOAD
+// (Using Supabase Storage)
 // ============================================
 
 document.getElementById('loan-agreement-form')?.addEventListener('submit', async (e) => {
@@ -570,29 +571,7 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
             Date.now()
         );
         
-        // Step 3: Create document record (store only metadata and URLs, not file data)
-        const documentRecord = {
-            aadhaar: {
-                name: aadhaarFile.name,
-                type: aadhaarFile.type,
-                size: aadhaarFile.size,
-                url: aadhaarData.url,
-                path: aadhaarData.path,
-                uploadedAt: new Date().toISOString()
-            },
-            undertaking: {
-                name: undertakingFile.name,
-                type: undertakingFile.type,
-                size: undertakingFile.size,
-                url: undertakingData.url,
-                path: undertakingData.path,
-                uploadedAt: new Date().toISOString()
-            },
-            agreementAccepted: true,
-            agreementDate: new Date().toISOString()
-        };
-        
-        // Step 4: Create loan in database
+        // Step 3: Create loan in database (without documents column)
         const { data: loanData, error: loanError } = await supabase
             .from('loans')
             .insert([
@@ -608,7 +587,6 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
                     monthly_payment: monthlyPayment,
                     funded: 0,
                     investors: [],
-                    documents: documentRecord, // Store metadata, not file data
                     agreement_accepted: true,
                     agreement_date: new Date().toISOString(),
                     created_at: new Date().toISOString()
@@ -619,22 +597,43 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         
         if (loanError) throw loanError;
         
-        // Step 5: Update user's KYC status and document records
-        const updatedDocs = [...(currentUser.documents || []), {
-            type: 'loan_documents',
-            loanId: loanData.id,
-            date: new Date().toISOString(),
-            documents: {
-                aadhaar: documentRecord.aadhaar,
-                undertaking: documentRecord.undertaking
+        // Step 4: Save document records in loan_documents table
+        const documentsToInsert = [
+            {
+                loan_id: loanData.id,
+                user_id: currentUser.id,
+                document_type: 'aadhaar',
+                file_name: aadhaarFile.name,
+                file_size: aadhaarFile.size,
+                file_type: aadhaarFile.type,
+                storage_path: aadhaarData.path,
+                public_url: aadhaarData.url,
+                uploaded_at: new Date().toISOString()
+            },
+            {
+                loan_id: loanData.id,
+                user_id: currentUser.id,
+                document_type: 'undertaking',
+                file_name: undertakingFile.name,
+                file_size: undertakingFile.size,
+                file_type: undertakingFile.type,
+                storage_path: undertakingData.path,
+                public_url: undertakingData.url,
+                uploaded_at: new Date().toISOString()
             }
-        }];
+        ];
         
+        const { error: docsError } = await supabase
+            .from('loan_documents')
+            .insert(documentsToInsert);
+        
+        if (docsError) throw docsError;
+        
+        // Step 5: Update user's KYC status
         const { error: updateError } = await supabase
             .from('users')
             .update({ 
-                kyc_status: 'verified',
-                documents: updatedDocs
+                kyc_status: 'verified'
             })
             .eq('id', currentUser.id);
         
@@ -642,7 +641,6 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         
         // Update current user
         currentUser.kyc_status = 'verified';
-        currentUser.documents = updatedDocs;
         
         // Close agreement modal
         document.getElementById('loan-agreement-modal').style.display = 'none';
