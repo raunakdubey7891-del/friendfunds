@@ -827,10 +827,6 @@ function resetUploads() {
     });
 }
 
-// ============================================
-// RENDER FUNCTIONS
-// ============================================
-
 function renderLoanRequests() {
     const container = document.getElementById('active-loans-container');
     if (!container) return;
@@ -845,9 +841,10 @@ function renderLoanRequests() {
 
     activeLoans.forEach(loan => {
         const progress = (loan.funded / loan.amount) * 100;
-        const kycStatus = loan.documents ?
-            '<span style="color: #2ecc71; font-size: 0.8rem;"><i class="fas fa-check-circle"></i> KYC Done</span>' :
-            '<span style="color: #e74c3c; font-size: 0.8rem;"><i class="fas fa-times-circle"></i> KYC Pending</span>';
+        const hasDocuments = loan.documents && Object.keys(loan.documents).length > 0;
+        const kycStatus = hasDocuments ?
+            '<span style="color: #2ecc71; font-size: 0.8rem;"><i class="fas fa-check-circle"></i> Documents Uploaded</span>' :
+            '<span style="color: #e74c3c; font-size: 0.8rem;"><i class="fas fa-times-circle"></i> Documents Pending</span>';
         
         const element = document.createElement('div');
         element.className = 'loan-request';
@@ -865,7 +862,8 @@ function renderLoanRequests() {
             </div>
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button class="btn btn-primary view-loan" data-id="${loan.id}">View Details</button>
-                ${currentUser && currentUser.username !== loan.borrower ? `<button class="btn btn-accent invest-btn" data-id="${loan.id}">Invest</button>` : ''}
+                ${currentUser && currentUser.username !== loan.borrower ? 
+                    `<button class="btn btn-accent invest-btn" data-id="${loan.id}">Invest</button>` : ''}
             </div>
         `;
         container.appendChild(element);
@@ -891,7 +889,6 @@ function renderLoanRequests() {
         });
     });
 }
-
 function renderInvestmentOpportunities() {
     const container = document.getElementById('investment-opportunities-container');
     if (!container) return;
