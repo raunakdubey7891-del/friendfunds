@@ -479,47 +479,7 @@ function checkSavedUser() {
 }
 
 // ============================================
-// CREATE LOAN REQUEST
-// ============================================
-
-document.getElementById('loan-request-form')?.addEventListener('submit', (e) => {
-    e.preventDefault();
-    
-    if (!currentUser) {
-        showNotification('Please login to create a loan request');
-        document.getElementById('login-modal').style.display = 'flex';
-        return;
-    }
-    
-    const purpose = document.getElementById('purpose').value;
-    const amount = parseInt(document.getElementById('amount').value);
-    const term = parseInt(document.getElementById('term').value);
-    
-    // Calculate monthly payment with 8% interest
-    const monthlyInterest = 8 / 12 / 100;
-    const monthlyPayment = amount * monthlyInterest * Math.pow(1 + monthlyInterest, term) / (Math.pow(1 + monthlyInterest, term) - 1);
-    
-    // Store in hidden fields
-    document.getElementById('agreement-purpose').value = purpose;
-    document.getElementById('agreement-amount').value = amount;
-    document.getElementById('agreement-term').value = term;
-    document.getElementById('agreement-monthly-payment').value = Math.round(monthlyPayment);
-    
-    // Update summary
-    document.getElementById('summary-purpose').textContent = purpose;
-    document.getElementById('summary-amount').textContent = amount.toLocaleString();
-    document.getElementById('summary-term').textContent = term;
-    document.getElementById('summary-monthly').textContent = Math.round(monthlyPayment).toLocaleString();
-    
-    // Reset file uploads
-    resetUploads();
-    
-    // Show agreement modal
-    document.getElementById('loan-agreement-modal').style.display = 'flex';
-});
-// ============================================
 // SUBMIT LOAN AGREEMENT WITH DOCUMENT UPLOAD
-// (Fixed for your table structure)
 // ============================================
 
 document.getElementById('loan-agreement-form')?.addEventListener('submit', async (e) => {
@@ -552,48 +512,72 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         const term = parseInt(document.getElementById('agreement-term').value);
         const monthlyPayment = parseInt(document.getElementById('agreement-monthly-payment').value);
         
-        // Upload files to Supabase Storage first
+        // First, upload files to Supabase Storage
         const aadhaarFile = uploadedFiles.aadhaar;
         const undertakingFile = uploadedFiles.undertaking;
         
-        // Create document record as JSONB (matches your documents column type)
+        // Upload Aadhaar
+        const aadhaarPath = `${currentUser.id}/aadhaar_${Date.now()}.${aadhaarFile.name.split('.').pop()}`;
+        const { error: aadhaarError } = await supabase.storage
+            .from('documents')
+            .upload(aadhaarPath, aadhaarFile);
+        
+        if (aadhaarError) throw aadhaarError;
+        
+        // Get public URL for Aadhaar
+        const { data: aadhaarUrlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(aadhaarPath);
+        
+        // Upload Undertaking
+        const undertakingPath = `${currentUser.id}/undertaking_${Date.now()}.${undertakingFile.name.split('.').pop()}`;
+        const { error: undertakingError } = await supabase.storage
+            .from('documents')
+            .upload(undertakingPath, undertakingFile);
+        
+        if (undertakingError) throw undertakingError;
+        
+        // Get public URL for Undertaking
+        const { data: undertakingUrlData } = supabase.storage
+            .from('documents')
+            .getPublicUrl(undertakingPath);
+        
+        // Create document record as JSON (for the documents column)
         const documentRecord = {
             aadhaar: {
                 name: aadhaarFile.name,
-                type: aadhaarFile.type,
-                size: aadhaarFile.size,
+                path: aadhaarPath,
+                url: aadhaarUrlData.publicUrl,
                 uploadedAt: new Date().toISOString()
             },
             undertaking: {
                 name: undertakingFile.name,
-                type: undertakingFile.type,
-                size: undertakingFile.size,
+                path: undertakingPath,
+                url: undertakingUrlData.publicUrl,
                 uploadedAt: new Date().toISOString()
-            },
-            agreementAccepted: true,
-            agreementDate: new Date().toISOString()
+            }
         };
         
-        // Create loan in database - matching ALL your columns
+        // Create loan in database - matching your exact table structure
         const { data, error } = await supabase
             .from('loans')
             .insert([
                 {
                     borrower: currentUser.username,
-                    borrower_id: currentUser.id,  // You have this column
+                    borrower_id: currentUser.id,  // This should be an integer
                     purpose: purpose,
                     amount: amount,
                     term: term,
                     interest: 8,
-                    status: 'active',
+                    status: 'pending',  // Changed from 'active' to 'pending' until documents are verified
                     date: new Date().toISOString().split('T')[0],
                     monthly_payment: monthlyPayment,
                     funded: 0,
                     investors: [],  // Empty array for investors
                     documents: documentRecord,  // Store as JSONB
-                    agreement_accepted: true,  // You have this column
-                    agreement_date: new Date().toISOString(),  // You have this column
-                    created_at: new Date().toISOString()  // You have this column
+                    agreement_accepted: true,
+                    agreement_date: new Date().toISOString(),
+                    created_at: new Date().toISOString()
                 }
             ])
             .select()
@@ -606,28 +590,17 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
         }
         
         if (data) {
-            // Update user's KYC status
-            const { error: updateError } = await supabase
-                .from('users')
-                .update({ 
-                    kyc_status: 'verified'
-                })
-                .eq('id', currentUser.id);
-            
-            if (updateError) {
-                console.error('Error updating user:', updateError);
-            } else {
-                currentUser.kyc_status = 'verified';
-            }
-            
             // Close agreement modal
             document.getElementById('loan-agreement-modal').style.display = 'none';
             
-            // Update success modal
+            // Show success message
+            showNotification('Loan request created with documents successfully!');
+            
+            // Update success modal content
             const successSummary = document.getElementById('success-document-summary');
             if (successSummary) {
                 successSummary.innerHTML = `
-                    <div style="padding: 1rem; text-align: center;">
+                    <div style="padding: 1rem;">
                         <i class="fas fa-check-circle" style="font-size: 3rem; color: #2ecc71; margin-bottom: 1rem;"></i>
                         <h4 style="margin-bottom: 1rem; color: #2c3e50;">Loan Request Created Successfully!</h4>
                         <div style="background: #f8f9fa; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; text-align: left;">
@@ -636,11 +609,7 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
                             <p><strong>Term:</strong> ${term} months</p>
                             <p><strong>Monthly Payment:</strong> ₹${monthlyPayment.toLocaleString()}</p>
                         </div>
-                        <div style="background: #e8f4fd; border-radius: 8px; padding: 1rem; text-align: left;">
-                            <p style="margin-bottom: 0.5rem;"><i class="fas fa-id-card" style="color: #3498db;"></i> <strong>Aadhaar:</strong> ${aadhaarFile.name}</p>
-                            <p><i class="fas fa-file-pdf" style="color: #e74c3c;"></i> <strong>Undertaking:</strong> ${undertakingFile.name}</p>
-                        </div>
-                        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">Your documents have been submitted successfully.</p>
+                        <p style="color: #666; font-size: 0.9rem;">Your documents have been uploaded successfully.</p>
                     </div>
                 `;
             }
@@ -653,15 +622,12 @@ document.getElementById('loan-agreement-form')?.addEventListener('submit', async
             
             // Refresh loans
             await loadLoansRealtime();
-            
-            showNotification('Loan request created with documents successfully!');
         }
     } catch (error) {
         console.error('Error creating loan:', error);
         showNotification('Error creating loan: ' + error.message);
     }
 });
-
 // Helper function to open document in new tab
 window.openDocumentInBrowser = function (url) {
     if (url) {
