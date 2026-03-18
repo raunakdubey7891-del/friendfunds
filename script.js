@@ -1,7 +1,10 @@
+// ===== COMPLETE FRIENDFUNDS SCRIPT WITH SUPABASE =====
+// This contains ALL original functionality - login, loans, investments, documents, etc.
+
 // ===== SUPABASE SETUP =====
-// 🔴 IMPORTANT: REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
-const SUPABASE_URL = 'https://zjqdcuurearuxvxvejjj.supabase.co'; 
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcWRjdXVyZWFydXh2eHZlampqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDg3MDAsImV4cCI6MjA4OTQyNDcwMH0.U7iTsV0NUlO0Tncuqjsy-9dPjltvmf4lQF4L1CrgENw';  
+// 🔴 REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
+const SUPABASE_URL = 'https://zjqdcuurearuxvxvejjj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpqcWRjdXVyZWFydXh2eHZlampqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NDg3MDAsImV4cCI6MjA4OTQyNDcwMH0.U7iTsV0NUlO0Tncuqjsy-9dPjltvmf4lQF4L1CrgENw';
 
 // Initialize Supabase
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -206,7 +209,6 @@ async function uploadDocument(userId, loanId, file, documentType) {
         reader.readAsDataURL(file);
         reader.onload = async () => {
             try {
-                // Store document in loans table documents field (like original)
                 const documentData = {
                     name: file.name,
                     type: file.type,
@@ -274,67 +276,72 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize file upload handlers
     initFileUploadHandlers();
 
-    // ===== LOGIN BUTTON =====
+    // ===== LOGIN BUTTON - DIRECT WORKING CODE =====
     if (loginBtn) {
-        loginBtn.addEventListener('click', function(e) {
+        console.log('Login button found, attaching event');
+        loginBtn.onclick = function(e) {
             e.preventDefault();
             console.log('Login button clicked');
             if (loginModal) {
                 loginModal.style.display = 'flex';
+            } else {
+                console.error('Login modal not found');
             }
-        });
+        };
+    } else {
+        console.error('Login button not found! Check ID in HTML');
     }
 
     // ===== GET STARTED BUTTON =====
     if (getStartedBtn) {
-        getStartedBtn.addEventListener('click', function(e) {
+        getStartedBtn.onclick = function(e) {
             e.preventDefault();
             if (currentUser) {
                 showSection('dashboard');
             } else {
                 loginModal.style.display = 'flex';
             }
-        });
+        };
     }
 
     // ===== LEARN MORE BUTTON =====
     if (learnMoreBtn) {
-        learnMoreBtn.addEventListener('click', function(e) {
+        learnMoreBtn.onclick = function(e) {
             e.preventDefault();
             document.querySelector('.features').scrollIntoView({ behavior: 'smooth' });
-        });
+        };
     }
 
     // ===== REGISTER LINK =====
     if (registerLink) {
-        registerLink.addEventListener('click', function(e) {
+        registerLink.onclick = function(e) {
             e.preventDefault();
             loginModal.style.display = 'none';
             registerModal.style.display = 'flex';
-        });
+        };
     }
 
     // ===== FORGOT PASSWORD LINK =====
     if (forgotPasswordLink) {
-        forgotPasswordLink.addEventListener('click', function(e) {
+        forgotPasswordLink.onclick = function(e) {
             e.preventDefault();
             loginModal.style.display = 'none';
             forgotPasswordModal.style.display = 'flex';
-        });
+        };
     }
 
     // ===== BACK TO LOGIN LINK =====
     if (backToLoginLink) {
-        backToLoginLink.addEventListener('click', function(e) {
+        backToLoginLink.onclick = function(e) {
             e.preventDefault();
             forgotPasswordModal.style.display = 'none';
             loginModal.style.display = 'flex';
-        });
+        };
     }
 
     // ===== CLOSE BUTTONS =====
     closeButtons.forEach(button => {
-        button.addEventListener('click', function() {
+        button.onclick = function() {
             loginModal.style.display = 'none';
             registerModal.style.display = 'none';
             forgotPasswordModal.style.display = 'none';
@@ -343,28 +350,28 @@ document.addEventListener('DOMContentLoaded', function() {
             if (agreementModal) agreementModal.style.display = 'none';
             if (successModal) successModal.style.display = 'none';
             if (documentViewerModal) documentViewerModal.style.display = 'none';
-        });
+        };
     });
 
     // ===== CLOSE DOCUMENT VIEWER =====
     if (closeDocumentViewer) {
-        closeDocumentViewer.addEventListener('click', function() {
+        closeDocumentViewer.onclick = function() {
             documentViewerModal.style.display = 'none';
-        });
+        };
     }
 
     // ===== NAVIGATION =====
     navLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
+        link.onclick = function(e) {
             e.preventDefault();
             const target = this.getAttribute('data-target');
             showSection(target);
-        });
+        };
     });
 
     // ===== TABS =====
     tabs.forEach(tab => {
-        tab.addEventListener('click', function() {
+        tab.onclick = function() {
             const tabId = this.getAttribute('data-tab');
             tabs.forEach(t => t.classList.remove('active'));
             tabContents.forEach(tc => tc.classList.remove('active'));
@@ -374,12 +381,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (tabId === 'documents' && currentUser) {
                 renderUserDocuments();
             }
-        });
+        };
     });
 
     // ===== LOGIN FORM =====
     if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
+        loginForm.onsubmit = async function(e) {
             e.preventDefault();
             const usernameOrEmail = document.getElementById('username').value;
             const password = document.getElementById('password').value;
@@ -397,12 +404,12 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 showNotification('Invalid username/email or password');
             }
-        });
+        };
     }
 
     // ===== REGISTER FORM =====
     if (registerForm) {
-        registerForm.addEventListener('submit', async function(e) {
+        registerForm.onsubmit = async function(e) {
             e.preventDefault();
             const username = document.getElementById('new-username').value;
             const password = document.getElementById('new-password').value;
@@ -423,12 +430,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('username').value = username;
                 loginModal.style.display = 'flex';
             }
-        });
+        };
     }
 
     // ===== FORGOT PASSWORD FORM =====
     if (forgotPasswordForm) {
-        forgotPasswordForm.addEventListener('submit', function(e) {
+        forgotPasswordForm.onsubmit = function(e) {
             e.preventDefault();
             const email = document.getElementById('reset-email').value;
             const user = users.find(u => u.email === email);
@@ -439,12 +446,12 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 showNotification('No account found with that email address');
             }
-        });
+        };
     }
 
     // ===== LOAN REQUEST FORM =====
     if (loanRequestForm) {
-        loanRequestForm.addEventListener('submit', function(e) {
+        loanRequestForm.onsubmit = function(e) {
             e.preventDefault();
 
             if (!currentUser) {
@@ -475,12 +482,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (agreementModal) {
                 agreementModal.style.display = 'flex';
             }
-        });
+        };
     }
 
     // ===== AGREEMENT FORM =====
     if (agreementForm) {
-        agreementForm.addEventListener('submit', async function(e) {
+        agreementForm.onsubmit = async function(e) {
             e.preventDefault();
 
             if (!uploadedFiles.aadhaar || !uploadedFiles.undertaking) {
@@ -542,35 +549,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error creating loan:', error);
                 showNotification('Failed to create loan');
             }
-        });
+        };
     }
 
     // ===== CANCEL AGREEMENT BUTTON =====
     const cancelBtn = document.getElementById('cancel-agreement');
     if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
+        cancelBtn.onclick = function() {
             agreementModal.style.display = 'none';
-        });
+        };
     }
 
     // ===== CLOSE AGREEMENT BUTTON =====
     const closeAgreement = document.getElementById('close-agreement');
     if (closeAgreement) {
-        closeAgreement.addEventListener('click', function() {
+        closeAgreement.onclick = function() {
             agreementModal.style.display = 'none';
-        });
+        };
     }
 
     // ===== MOBILE MENU TOGGLE =====
     if (menuToggle) {
-        menuToggle.addEventListener('click', function() {
+        menuToggle.onclick = function() {
             document.querySelector('.nav-links').classList.toggle('active');
-        });
+        };
     }
 
     // ===== PASSWORD VISIBILITY TOGGLE =====
     passwordToggles.forEach(toggle => {
-        toggle.addEventListener('click', function() {
+        toggle.onclick = function() {
             const input = this.previousElementSibling;
             if (input.type === 'password') {
                 input.type = 'text';
@@ -579,11 +586,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 input.type = 'password';
                 this.innerHTML = '<i class="far fa-eye"></i>';
             }
-        });
+        };
     });
 
     // ===== CLOSE MODALS WHEN CLICKING OUTSIDE =====
-    window.addEventListener('click', function(e) {
+    window.onclick = function(e) {
         if (e.target === loginModal) loginModal.style.display = 'none';
         if (e.target === registerModal) registerModal.style.display = 'none';
         if (e.target === forgotPasswordModal) forgotPasswordModal.style.display = 'none';
@@ -592,10 +599,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === agreementModal) agreementModal.style.display = 'none';
         if (e.target === successModal) successModal.style.display = 'none';
         if (e.target === documentViewerModal) documentViewerModal.style.display = 'none';
-    });
+    };
 
     // Start real-time updates
     startRealTimeUpdates();
+    
+    console.log('Initialization complete');
 });
 
 // ===== SHOW SECTION =====
@@ -646,11 +655,7 @@ function updateUIAfterLogin() {
     if (loginBtn) {
         loginBtn.textContent = 'Logout';
 
-        // Clone and replace to remove old event listeners
-        loginBtn.replaceWith(loginBtn.cloneNode(true));
-        const newLoginBtn = document.getElementById('login-btn');
-
-        newLoginBtn.addEventListener('click', function(e) {
+        loginBtn.onclick = function(e) {
             e.preventDefault();
             currentUser = null;
             localStorage.removeItem('friendlend_currentUser');
@@ -660,12 +665,11 @@ function updateUIAfterLogin() {
             showSection('home');
             showNotification('Logged out successfully');
 
-            // Re-attach login modal handler
-            this.addEventListener('click', function(e) {
+            this.onclick = function(e) {
                 e.preventDefault();
                 document.getElementById('login-modal').style.display = 'flex';
-            });
-        });
+            };
+        };
     }
 }
 
@@ -677,66 +681,65 @@ function initFileUploadHandlers() {
     const undertakingArea = document.getElementById('undertaking-upload-area');
 
     if (aadhaarArea && aadhaarUpload) {
-        aadhaarArea.addEventListener('click', (e) => {
+        aadhaarArea.onclick = (e) => {
             if (!e.target.classList.contains('remove-file')) {
                 aadhaarUpload.click();
             }
-        });
+        };
 
-        aadhaarUpload.addEventListener('change', function(e) {
+        aadhaarUpload.onchange = function(e) {
             handleFileUpload(this.files[0], 'aadhaar');
-        });
+        };
 
-        // Drag and drop
-        aadhaarArea.addEventListener('dragover', (e) => {
+        aadhaarArea.ondragover = (e) => {
             e.preventDefault();
             aadhaarArea.style.borderColor = '#f39c12';
-        });
+        };
 
-        aadhaarArea.addEventListener('dragleave', (e) => {
+        aadhaarArea.ondragleave = (e) => {
             e.preventDefault();
             aadhaarArea.style.borderColor = '#3498db';
-        });
+        };
 
-        aadhaarArea.addEventListener('drop', (e) => {
+        aadhaarArea.ondrop = (e) => {
             e.preventDefault();
             aadhaarArea.style.borderColor = '#3498db';
             const file = e.dataTransfer.files[0];
             if (file) {
                 handleFileUpload(file, 'aadhaar');
             }
-        });
+        };
     }
 
     if (undertakingArea && undertakingUpload) {
-        undertakingArea.addEventListener('click', (e) => {
+        undertakingArea.onclick = (e) => {
             if (!e.target.classList.contains('remove-file')) {
                 undertakingUpload.click();
             }
-        });
+        };
 
-        undertakingUpload.addEventListener('change', function(e) {
+        undertakingUpload.onchange = function(e) {
             handleFileUpload(this.files[0], 'undertaking');
-        });
+        };
 
-        undertakingArea.addEventListener('dragover', (e) => {
+        undertakingArea.ondragover = (e) => {
             e.preventDefault();
             undertakingArea.style.borderColor = '#f39c12';
-        });
+        };
 
-        undertakingArea.addEventListener('dragleave', (e) => {
+        undertakingArea.ondragleave = (e) => {
             e.preventDefault();
             undertakingArea.style.borderColor = '#3498db';
-        });
+        };
 
-        undertakingArea.addEventListener('drop', (e) => {
+        undertakingArea.ondrop = (e) => {
             e.preventDefault();
             undertakingArea.style.borderColor = '#3498db';
             const file = e.dataTransfer.files[0];
             if (file) {
                 handleFileUpload(file, 'undertaking');
             }
-        });
+        };
     }
 }
 
@@ -744,13 +747,11 @@ function initFileUploadHandlers() {
 function handleFileUpload(file, type) {
     if (!file) return;
 
-    // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
         showNotification('File size should be less than 5MB');
         return;
     }
 
-    // Check file type
     if (type === 'aadhaar') {
         const validTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
         if (!validTypes.includes(file.type)) {
@@ -900,16 +901,15 @@ function renderLoanRequests() {
         container.appendChild(element);
     });
 
-    // Add event listeners
     document.querySelectorAll('.view-loan').forEach(button => {
-        button.addEventListener('click', function() {
+        button.onclick = function() {
             const loanId = parseInt(this.getAttribute('data-id'));
             showLoanDetails(loanId);
-        });
+        };
     });
 
     document.querySelectorAll('.invest-btn').forEach(button => {
-        button.addEventListener('click', function() {
+        button.onclick = function() {
             if (!currentUser) {
                 showNotification('Please login to invest');
                 document.getElementById('login-modal').style.display = 'flex';
@@ -917,7 +917,7 @@ function renderLoanRequests() {
             }
             const loanId = parseInt(this.getAttribute('data-id'));
             showInvestModal(loanId);
-        });
+        };
     });
 }
 
@@ -957,7 +957,7 @@ function renderInvestmentOpportunities() {
     });
 
     document.querySelectorAll('.invest-btn').forEach(button => {
-        button.addEventListener('click', function() {
+        button.onclick = function() {
             if (!currentUser) {
                 showNotification('Please login to invest');
                 document.getElementById('login-modal').style.display = 'flex';
@@ -965,7 +965,7 @@ function renderInvestmentOpportunities() {
             }
             const loanId = parseInt(this.getAttribute('data-id'));
             showInvestModal(loanId);
-        });
+        };
     });
 }
 
@@ -1049,10 +1049,10 @@ function showLoanDetails(loanId) {
 
     const investBtn = document.querySelector('#loan-detail-content .invest-btn');
     if (investBtn) {
-        investBtn.addEventListener('click', function() {
+        investBtn.onclick = function() {
             document.getElementById('loan-detail-modal').style.display = 'none';
             showInvestModal(loanId);
-        });
+        };
     }
 }
 
@@ -1091,7 +1091,6 @@ function renderUserDashboard() {
     const userInvestmentsContainer = document.getElementById('user-investments-container');
     const userProfileContainer = document.getElementById('user-profile-container');
 
-    // Render user loans
     const userLoans = loans.filter(loan => loan.borrower === currentUser.username);
     userLoansContainer.innerHTML = '';
 
@@ -1124,14 +1123,13 @@ function renderUserDashboard() {
         });
 
         userLoansContainer.querySelectorAll('.view-loan').forEach(button => {
-            button.addEventListener('click', function() {
+            button.onclick = function() {
                 const loanId = parseInt(this.getAttribute('data-id'));
                 showLoanDetails(loanId);
-            });
+            };
         });
     }
 
-    // Render user investments
     const userInvestments = investments.filter(inv => inv.investor === currentUser.username);
     userInvestmentsContainer.innerHTML = '';
 
@@ -1160,14 +1158,13 @@ function renderUserDashboard() {
         });
 
         userInvestmentsContainer.querySelectorAll('.view-investment').forEach(button => {
-            button.addEventListener('click', function() {
+            button.onclick = function() {
                 const investmentId = parseInt(this.getAttribute('data-id'));
                 showInvestmentDetails(investmentId);
-            });
+            };
         });
     }
 
-    // Render user profile
     const totalInvested = userInvestments.reduce((sum, inv) => sum + inv.amount, 0);
     const totalBorrowed = userLoans.reduce((sum, loan) => sum + loan.amount, 0);
     const kycBadge = currentUser.kycStatus === 'verified' ?
@@ -1191,7 +1188,7 @@ function renderUserDashboard() {
 
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', function() {
+        logoutBtn.onclick = function() {
             currentUser = null;
             localStorage.removeItem('friendlend_currentUser');
             localStorage.removeItem('friendlend_rememberMe');
@@ -1199,7 +1196,7 @@ function renderUserDashboard() {
             document.getElementById('user-dashboard').style.display = 'none';
             showSection('home');
             showNotification('Logged out successfully');
-        });
+        };
     }
 }
 
@@ -1262,7 +1259,6 @@ window.openDocumentInBrowser = function(docType, loanId) {
     const documentData = loan.documents[docType];
     if (!documentData || !documentData.dataUrl) return;
 
-    // Open in new tab
     const newWindow = window.open();
     if (documentData.type.startsWith('image/')) {
         newWindow.document.write(`
