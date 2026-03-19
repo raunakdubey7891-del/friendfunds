@@ -1,122 +1,12 @@
-// Data storage
-let users = JSON.parse(localStorage.getItem('friendlend_users')) || [];
-let loans = JSON.parse(localStorage.getItem('friendlend_loans')) || [];
-let investments = JSON.parse(localStorage.getItem('friendlend_investments')) || [];
-let payments = JSON.parse(localStorage.getItem('friendlend_payments')) || [];
-let userDocuments = JSON.parse(localStorage.getItem('friendlend_documents')) || {};
+// Supabase configuration - REPLACE WITH YOUR ACTUAL CREDENTIALS
+const SUPABASE_URL = 'https://qcgzjjkudjmwbbowoxop.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjZ3pqamt1ZGptd2Jib3dveG9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MjgzNzEsImV4cCI6MjA4OTUwNDM3MX0.ON6APz59cLDGOtRbngmb8tuP2e-Q0zNFMb9TpRR5Vqc';
 
-// Sample data if empty
-if (loans.length === 0) {
-    loans = [
-        {
-            id: 1,
-            borrower: 'Nirmal',
-            purpose: 'Education Fee',
-            amount: 15000,
-            term: 12,
-            interest: 8,
-            status: 'active',
-            date: '2023-09-15',
-            monthlyPayment: 1302,
-            funded: 8000,
-            investors: [],
-            documents: null,
-            agreementAccepted: false
-        },
-        {
-            id: 2,
-            borrower: 'Harsh',
-            purpose: 'Vacation',
-            amount: 8000,
-            term: 6,
-            interest: 8,
-            status: 'active',
-            date: '2023-10-05',
-            monthlyPayment: 1360,
-            funded: 3000,
-            investors: [],
-            documents: null,
-            agreementAccepted: false
-        },
-        {
-            id: 3,
-            borrower: 'Mohit',
-            purpose: 'Laptop Purchase',
-            amount: 25000,
-            term: 18,
-            interest: 8,
-            status: 'active',
-            date: '2023-10-20',
-            monthlyPayment: 1484,
-            funded: 12000,
-            investors: [],
-            documents: null,
-            agreementAccepted: false
-        },
-        {
-            id: 4,
-            borrower: 'Shubham',
-            purpose: 'Air condition Purchase',
-            amount: 35000,
-            term: 18,
-            interest: 8,
-            status: 'active',
-            date: '2023-10-20',
-            monthlyPayment: 2078,
-            funded: 15000,
-            investors: [],
-            documents: null,
-            agreementAccepted: false
-        }
-    ];
-    localStorage.setItem('friendlend_loans', JSON.stringify(loans));
-}
+// Initialize Supabase client
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-if (users.length === 0) {
-    users = [
-        {
-            id: 1,
-            username: 'Nirmal',
-            password: 'password123',
-            email: 'Nirmal@example.com',
-            balance: 1000000,
-            rememberMe: false,
-            kycStatus: 'pending',
-            documents: []
-        },
-        {
-            id: 2,
-            username: 'Harsh',
-            password: 'password123',
-            email: 'Harsh@example.com',
-            balance: 1000000,
-            rememberMe: false,
-            kycStatus: 'pending',
-            documents: []
-        },
-        {
-            id: 3,
-            username: 'Mohit',
-            password: 'password123',
-            email: 'Mohit@example.com',
-            balance: 1000000,
-            rememberMe: false,
-            kycStatus: 'pending',
-            documents: []
-        },
-        {
-            id: 4,
-            username: 'Shubham',
-            password: 'password123',
-            email: 'Shubham@example.com',
-            balance: 1000000,
-            rememberMe: false,
-            kycStatus: 'pending',
-            documents: []
-        }
-    ];
-    localStorage.setItem('friendlend_users', JSON.stringify(users));
-}
+// Razorpay configuration (test mode)
+const RAZORPAY_KEY_ID = 'rzp_test_YOUR_TEST_KEY'; // Replace with your Razorpay test key
 
 // Global variables
 let currentUser = null;
@@ -127,11 +17,14 @@ let uploadedFiles = {
 };
 let currentLoanForInvestment = null;
 
-// Razorpay configuration
-const RAZORPAY_KEY_ID = 'rzp_test_YOUR_KEY_HERE'; // Replace with your Razorpay key
-
 // Initialize the page
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
+    // Check for existing session
+    await checkSession();
+    
+    // Initialize with sample data if empty
+    await initializeSampleData();
+    
     // DOM Elements
     const loginBtn = document.getElementById('login-btn');
     const loginModal = document.getElementById('login-modal');
@@ -156,37 +49,29 @@ document.addEventListener('DOMContentLoaded', function () {
     const forgotPasswordForm = document.getElementById('forgot-password-form');
     const loanRequestForm = document.getElementById('loan-request-form');
     const agreementForm = document.getElementById('loan-agreement-form');
-    const investForm = document.getElementById('invest-form');
     const menuToggle = document.querySelector('.menu-toggle');
     const passwordToggles = document.querySelectorAll('.password-toggle');
     const rememberMeCheckbox = document.getElementById('remember-me');
     const razorpayPayBtn = document.getElementById('razorpay-pay-btn');
     const closeDocumentViewer = document.getElementById('close-document-viewer');
 
-
     // Initialize file upload handlers
     initFileUploadHandlers();
 
-    // Check saved user
-    const savedUser = localStorage.getItem('friendlend_currentUser');
-    const rememberMe = localStorage.getItem('friendlend_rememberMe') === 'true';
-
-    if (savedUser && rememberMe) {
-        currentUser = JSON.parse(savedUser);
-        updateUIAfterLogin();
-        showNotification(`Welcome back, ${currentUser.username}!`);
-    }
-
     // Initial render
-    renderLoanRequests();
-    renderInvestmentOpportunities();
+    await renderLoanRequests();
+    await renderInvestmentOpportunities();
     startRealTimeUpdates();
 
     // Login button
     if (loginBtn) {
         loginBtn.addEventListener('click', function (e) {
             e.preventDefault();
-            loginModal.style.display = 'flex';
+            if (currentUser) {
+                logout();
+            } else {
+                loginModal.style.display = 'flex';
+            }
         });
     }
 
@@ -285,33 +170,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Login form
     if (loginForm) {
-        loginForm.addEventListener('submit', function (e) {
+        loginForm.addEventListener('submit', async function (e) {
             e.preventDefault();
             const usernameOrEmail = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             const rememberMe = rememberMeCheckbox ? rememberMeCheckbox.checked : false;
 
-            const user = users.find(u =>
-                (u.username === usernameOrEmail || u.email === usernameOrEmail) &&
-                u.password === password
-            );
-
-            if (user) {
-                currentUser = user;
-                localStorage.setItem('friendlend_currentUser', JSON.stringify(user));
-                localStorage.setItem('friendlend_rememberMe', rememberMe);
-                updateUIAfterLogin();
-                loginModal.style.display = 'none';
-                showNotification('Login successful!');
-            } else {
-                showNotification('Invalid username/email or password');
-            }
+            await login(usernameOrEmail, password, rememberMe);
         });
     }
 
     // Register form
     if (registerForm) {
-        registerForm.addEventListener('submit', function (e) {
+        registerForm.addEventListener('submit', async function (e) {
             e.preventDefault();
             const username = document.getElementById('new-username').value;
             const password = document.getElementById('new-password').value;
@@ -323,50 +194,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            if (users.find(u => u.username === username)) {
-                showNotification('Username already exists');
-                return;
-            }
-
-            if (users.find(u => u.email === email)) {
-                showNotification('Email already registered');
-                return;
-            }
-
-            const newUser = {
-                id: Date.now(),
-                username,
-                password,
-                email,
-                balance: 50000,
-                rememberMe: false,
-                kycStatus: 'pending',
-                documents: []
-            };
-
-            users.push(newUser);
-            localStorage.setItem('friendlend_users', JSON.stringify(users));
-            registerModal.style.display = 'none';
-            registerForm.reset();
-            showNotification('Registration successful! Please login.');
-            document.getElementById('username').value = username;
-            loginModal.style.display = 'flex';
+            await register(username, email, password);
         });
     }
 
     // Forgot password form
     if (forgotPasswordForm) {
-        forgotPasswordForm.addEventListener('submit', function (e) {
+        forgotPasswordForm.addEventListener('submit', async function (e) {
             e.preventDefault();
             const email = document.getElementById('reset-email').value;
-            const user = users.find(u => u.email === email);
-            if (user) {
-                showNotification(`Password recovery email sent. Your password is: ${user.password}`);
-                forgotPasswordModal.style.display = 'none';
-                loginModal.style.display = 'flex';
-            } else {
-                showNotification('No account found with that email address');
-            }
+            await forgotPassword(email);
         });
     }
 
@@ -400,7 +237,7 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('summary-term').textContent = term;
             document.getElementById('summary-monthly').textContent = Math.round(monthlyPayment).toLocaleString();
 
-            // Reset file uploads and signature
+            // Reset file uploads
             resetUploads();
 
             // Show agreement modal
@@ -410,10 +247,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-
     // Agreement form submit
     if (agreementForm) {
-        agreementForm.addEventListener('submit', function (e) {
+        agreementForm.addEventListener('submit', async function (e) {
             e.preventDefault();
 
             // Check if all documents are uploaded
@@ -427,19 +263,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-
             // Check if terms are agreed
             const agreeTerms = document.getElementById('agree-terms');
             if (!agreeTerms.checked) {
                 showNotification('Please agree to the terms and conditions');
                 return;
             }
-
-            // Get loan details
-            const purpose = document.getElementById('agreement-purpose').value;
-            const amount = parseInt(document.getElementById('agreement-amount').value);
-            const term = parseInt(document.getElementById('agreement-term').value);
-            const monthlyPayment = parseInt(document.getElementById('agreement-monthly-payment').value);
 
             if (!currentUser) {
                 showNotification('Please login first');
@@ -448,115 +277,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            // Create document URLs for browser viewing
-            const aadhaarUrl = createDocumentUrl(uploadedFiles.aadhaar, 'aadhaar');
-            const undertakingUrl = createDocumentUrl(uploadedFiles.undertaking, 'undertaking');
-
-            // Create document record with view URLs
-            const documentRecord = {
-                aadhaar: {
-                    name: uploadedFiles.aadhaar.name,
-                    type: uploadedFiles.aadhaar.type,
-                    size: uploadedFiles.aadhaar.size,
-                    dataUrl: aadhaarUrl,
-                    viewUrl: aadhaarUrl,
-                    uploadedAt: new Date().toISOString()
-                },
-                undertaking: {
-                    name: uploadedFiles.undertaking.name,
-                    type: uploadedFiles.undertaking.type,
-                    size: uploadedFiles.undertaking.size,
-                    dataUrl: undertakingUrl,
-                    viewUrl: undertakingUrl,
-                    uploadedAt: new Date().toISOString()
-                },
-      agreementAccepted: true,
-                agreementDate: new Date().toISOString()
-            };
-
-            // Create the new loan
-            const newLoan = {
-                id: Date.now(),
-                borrower: currentUser.username,
-                purpose: purpose,
-                amount: amount,
-                term: term,
-                interest: 8,
-                status: 'active',
-                date: new Date().toISOString().split('T')[0],
-                monthlyPayment: monthlyPayment,
-                funded: 0,
-                investors: [],
-                documents: documentRecord,
-                agreementAccepted: true,
-                agreementDate: new Date().toISOString()
-            };
-
-            loans.push(newLoan);
-            localStorage.setItem('friendlend_loans', JSON.stringify(loans));
-
-            // Update user's KYC status
-            const userIndex = users.findIndex(u => u.id === currentUser.id);
-            if (userIndex !== -1) {
-                users[userIndex].kycStatus = 'verified';
-                users[userIndex].documents = users[userIndex].documents || [];
-                users[userIndex].documents.push({
-                    type: 'loan_documents',
-                    loanId: newLoan.id,
-                    date: new Date().toISOString(),
-                    documents: {
-                        aadhaar: documentRecord.aadhaar,
-                        undertaking: documentRecord.undertaking
-                    }
-                });
-                currentUser = users[userIndex];
-                localStorage.setItem('friendlend_users', JSON.stringify(users));
-                localStorage.setItem('friendlend_currentUser', JSON.stringify(currentUser));
-            }
-
-            // Store documents in userDocuments for easy access
-            userDocuments[`${currentUser.username}_${newLoan.id}`] = documentRecord;
-            localStorage.setItem('friendlend_documents', JSON.stringify(userDocuments));
-
-            // Close agreement modal
-            agreementModal.style.display = 'none';
-
-            // Update success modal with document summary
-            const successSummary = document.getElementById('success-document-summary');
-            if (successSummary) {
-                successSummary.innerHTML = `
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <i class="fas fa-id-card" style="color: #3498db; width: 20px;"></i>
-                        <span style="font-size: 0.9rem;">Aadhaar: <strong>${uploadedFiles.aadhaar.name}</strong></span>
-                        <button onclick="openDocumentInBrowser('aadhaar', ${newLoan.id})" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
-                            <i class="fas fa-external-link-alt"></i> View
-                        </button>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <i class="fas fa-file-pdf" style="color: #e74c3c; width: 20px;"></i>
-                        <span style="font-size: 0.9rem;">Undertaking: <strong>${uploadedFiles.undertaking.name}</strong></span>
-                        <button onclick="openDocumentInBrowser('undertaking', ${newLoan.id})" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
-                            <i class="fas fa-external-link-alt"></i> View
-                        </button>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-    <i class="fas fa-check-circle" style="color: #2ecc71; width: 20px;"></i>
-    <span style="font-size: 0.9rem;">Documents submitted successfully</span>
-</div>
-                    </div>
-                `;
-            }
-
-            // Show success modal
-            if (successModal) {
-                successModal.style.display = 'flex';
-            }
-
-            // Update displays
-            renderLoanRequests();
-            renderInvestmentOpportunities();
-
-            showNotification('Loan request created with documents successfully!');
+            await createLoanWithDocuments();
         });
     }
 
@@ -608,57 +329,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            const loanId = investForm.getAttribute('data-loan-id');
-            const loan = loans.find(l => l.id == loanId);
-
-            if (!loan) {
-                showNotification('Loan not found');
-                return;
-            }
-
-            const remaining = loan.amount - loan.funded;
-            if (amount > remaining) {
-                showNotification(`Amount exceeds remaining loan amount of ₹${remaining}`);
-                return;
-            }
-
-            if (amount > currentUser.balance) {
-                showNotification('Insufficient balance. Please add funds to your account.');
-                return;
-            }
-
-            // Initialize Razorpay payment
-            const options = {
-                key: RAZORPAY_KEY_ID,
-                amount: amount * 100, // Amount in paise
-                currency: 'INR',
-                name: 'FriendFunds',
-                description: `Investment in ${loan.purpose}`,
-                image: 'https://friendfunds.in/logo.png',
-                handler: function (response) {
-                    // Payment successful
-                    processInvestment(loanId, amount, response);
-                },
-                prefill: {
-                    name: currentUser.username,
-                    email: currentUser.email,
-                    contact: ''
-                },
-                notes: {
-                    address: 'FriendFunds Investment'
-                },
-                theme: {
-                    color: '#3498db'
-                },
-                modal: {
-                    ondismiss: function () {
-                        showNotification('Payment cancelled');
-                    }
-                }
-            };
-
-            const rzp = new Razorpay(options);
-            rzp.open();
+            const loanId = document.getElementById('invest-form').getAttribute('data-loan-id');
+            processRazorpayPayment(loanId, parseInt(amount));
         });
     }
 
@@ -696,87 +368,1076 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-// Create document URL for browser viewing
-function createDocumentUrl(file, type) {
-    // Create a blob URL for the file
-    const blob = new Blob([file], { type: file.type });
-    return URL.createObjectURL(blob);
+// ============== SUPABASE FUNCTIONS ==============
+
+// Check for existing session
+async function checkSession() {
+    const savedUser = localStorage.getItem('friendlend_currentUser');
+    const rememberMe = localStorage.getItem('friendlend_rememberMe') === 'true';
+
+    if (savedUser && rememberMe) {
+        const userData = JSON.parse(savedUser);
+        // Verify user still exists in database
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userData.id)
+            .single();
+
+        if (user && !error) {
+            currentUser = user;
+            updateUIAfterLogin();
+            showNotification(`Welcome back, ${currentUser.username}!`);
+        } else {
+            // Clear invalid session
+            localStorage.removeItem('friendlend_currentUser');
+            localStorage.removeItem('friendlend_rememberMe');
+        }
+    }
 }
 
-// Open document in new browser tab
-window.openDocumentInBrowser = function (docType, loanId) {
-    const loan = loans.find(l => l.id === loanId);
-    if (!loan || !loan.documents) return;
+// Login function
+async function login(usernameOrEmail, password, rememberMe) {
+    try {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .or(`username.eq.${usernameOrEmail},email.eq.${usernameOrEmail}`)
+            .eq('password', password)
+            .single();
 
-    const documentData = loan.documents[docType];
-    if (!documentData) return;
-
-    // Open the document URL in a new tab
-    if (documentData.dataUrl) {
-        window.open(documentData.dataUrl, '_blank');
-    } else {
-        showNotification('Document URL not available');
+        if (user && !error) {
+            currentUser = user;
+            localStorage.setItem('friendlend_currentUser', JSON.stringify(user));
+            localStorage.setItem('friendlend_rememberMe', rememberMe);
+            updateUIAfterLogin();
+            document.getElementById('login-modal').style.display = 'none';
+            showNotification('Login successful!');
+        } else {
+            showNotification('Invalid username/email or password');
+        }
+    } catch (error) {
+        showNotification('Login failed: ' + error.message);
     }
-};
+}
 
+// Register function
+async function register(username, email, password) {
+    try {
+        // Check if username exists
+        const { data: existingUser, error: checkError } = await supabase
+            .from('users')
+            .select('username, email')
+            .or(`username.eq.${username},email.eq.${email}`);
 
-// Process investment after payment
-function processInvestment(loanId, amount, paymentResponse) {
-    const loan = loans.find(l => l.id == loanId);
-    if (!loan) return;
+        if (existingUser && existingUser.length > 0) {
+            if (existingUser.some(u => u.username === username)) {
+                showNotification('Username already exists');
+            } else {
+                showNotification('Email already registered');
+            }
+            return;
+        }
 
-    // Update loan
-    loan.funded += parseInt(amount);
-    if (loan.funded >= loan.amount) {
-        loan.status = 'funded';
+        // Create new user
+        const { data: newUser, error } = await supabase
+            .from('users')
+            .insert([
+                {
+                    username: username,
+                    email: email,
+                    password: password,
+                    balance: 50000,
+                    kyc_status: 'pending',
+                    documents: []
+                }
+            ])
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        document.getElementById('register-modal').style.display = 'none';
+        document.getElementById('register-form').reset();
+        showNotification('Registration successful! Please login.');
+        document.getElementById('username').value = username;
+        document.getElementById('login-modal').style.display = 'flex';
+    } catch (error) {
+        showNotification('Registration failed: ' + error.message);
     }
+}
 
-    // Update user balance
-    currentUser.balance -= parseInt(amount);
-    users = users.map(u => u.id === currentUser.id ? currentUser : u);
+// Forgot password function
+async function forgotPassword(email) {
+    try {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('password')
+            .eq('email', email)
+            .single();
 
-    // Create investment record
-    const investment = {
-        id: Date.now(),
-        loanId: loan.id,
-        investor: currentUser.username,
-        amount: parseInt(amount),
-        date: new Date().toISOString().split('T')[0],
-        expectedReturn: Math.round(parseInt(amount) * (1 + 8 / 100 * loan.term / 12)),
-        status: 'active',
-        paymentId: paymentResponse.razorpay_payment_id,
-        paymentMethod: 'Razorpay'
+        if (user && !error) {
+            showNotification(`Password recovery: Your password is: ${user.password}`);
+            document.getElementById('forgot-password-modal').style.display = 'none';
+            document.getElementById('login-modal').style.display = 'flex';
+        } else {
+            showNotification('No account found with that email address');
+        }
+    } catch (error) {
+        showNotification('Error: ' + error.message);
+    }
+}
+
+// Logout function
+async function logout() {
+    currentUser = null;
+    localStorage.removeItem('friendlend_currentUser');
+    localStorage.removeItem('friendlend_rememberMe');
+    document.getElementById('login-btn').textContent = 'Login';
+    document.getElementById('user-dashboard').style.display = 'none';
+    showSection('home');
+    showNotification('Logged out successfully');
+}
+
+// Initialize sample data
+async function initializeSampleData() {
+    try {
+        // Check if loans exist
+        const { data: existingLoans, error: checkError } = await supabase
+            .from('loans')
+            .select('id')
+            .limit(1);
+
+        if (existingLoans && existingLoans.length === 0) {
+            // Insert sample loans
+            const sampleLoans = [
+                {
+                    borrower: 'Nirmal',
+                    purpose: 'Education Fee',
+                    amount: 15000,
+                    term: 12,
+                    interest: 8,
+                    status: 'active',
+                    date: '2023-09-15',
+                    monthly_payment: 1302,
+                    funded: 8000,
+                    investors: [],
+                    documents: null,
+                    agreement_accepted: false
+                },
+                {
+                    borrower: 'Harsh',
+                    purpose: 'Vacation',
+                    amount: 8000,
+                    term: 6,
+                    interest: 8,
+                    status: 'active',
+                    date: '2023-10-05',
+                    monthly_payment: 1360,
+                    funded: 3000,
+                    investors: [],
+                    documents: null,
+                    agreement_accepted: false
+                },
+                {
+                    borrower: 'Mohit',
+                    purpose: 'Laptop Purchase',
+                    amount: 25000,
+                    term: 18,
+                    interest: 8,
+                    status: 'active',
+                    date: '2023-10-20',
+                    monthly_payment: 1484,
+                    funded: 12000,
+                    investors: [],
+                    documents: null,
+                    agreement_accepted: false
+                },
+                {
+                    borrower: 'Shubham',
+                    purpose: 'Air condition Purchase',
+                    amount: 35000,
+                    term: 18,
+                    interest: 8,
+                    status: 'active',
+                    date: '2023-10-20',
+                    monthly_payment: 2078,
+                    funded: 15000,
+                    investors: [],
+                    documents: null,
+                    agreement_accepted: false
+                }
+            ];
+
+            const { error: insertError } = await supabase
+                .from('loans')
+                .insert(sampleLoans);
+
+            if (insertError) console.error('Error inserting sample loans:', insertError);
+        }
+
+        // Check if users exist
+        const { data: existingUsers, error: userCheckError } = await supabase
+            .from('users')
+            .select('id')
+            .limit(1);
+
+        if (existingUsers && existingUsers.length === 0) {
+            // Insert sample users
+            const sampleUsers = [
+                {
+                    username: 'Nirmal',
+                    password: 'password123',
+                    email: 'Nirmal@example.com',
+                    balance: 1000000,
+                    kyc_status: 'pending',
+                    documents: []
+                },
+                {
+                    username: 'Harsh',
+                    password: 'password123',
+                    email: 'Harsh@example.com',
+                    balance: 1000000,
+                    kyc_status: 'pending',
+                    documents: []
+                },
+                {
+                    username: 'Mohit',
+                    password: 'password123',
+                    email: 'Mohit@example.com',
+                    balance: 1000000,
+                    kyc_status: 'pending',
+                    documents: []
+                },
+                {
+                    username: 'Shubham',
+                    password: 'password123',
+                    email: 'Shubham@example.com',
+                    balance: 1000000,
+                    kyc_status: 'pending',
+                    documents: []
+                }
+            ];
+
+            const { error: insertError } = await supabase
+                .from('users')
+                .insert(sampleUsers);
+
+            if (insertError) console.error('Error inserting sample users:', insertError);
+        }
+    } catch (error) {
+        console.error('Error initializing sample data:', error);
+    }
+}
+
+// Create loan with documents
+async function createLoanWithDocuments() {
+    try {
+        const purpose = document.getElementById('agreement-purpose').value;
+        const amount = parseInt(document.getElementById('agreement-amount').value);
+        const term = parseInt(document.getElementById('agreement-term').value);
+        const monthlyPayment = parseInt(document.getElementById('agreement-monthly-payment').value);
+
+        // Create document URLs for viewing
+        const aadhaarUrl = URL.createObjectURL(uploadedFiles.aadhaar);
+        const undertakingUrl = URL.createObjectURL(uploadedFiles.undertaking);
+
+        // Create document record
+        const documentRecord = {
+            aadhaar: {
+                name: uploadedFiles.aadhaar.name,
+                type: uploadedFiles.aadhaar.type,
+                size: uploadedFiles.aadhaar.size,
+                dataUrl: aadhaarUrl,
+                uploadedAt: new Date().toISOString()
+            },
+            undertaking: {
+                name: uploadedFiles.undertaking.name,
+                type: uploadedFiles.undertaking.type,
+                size: uploadedFiles.undertaking.size,
+                dataUrl: undertakingUrl,
+                uploadedAt: new Date().toISOString()
+            },
+            agreementAccepted: true,
+            agreementDate: new Date().toISOString()
+        };
+
+        // Create the new loan
+        const newLoan = {
+            borrower: currentUser.username,
+            purpose: purpose,
+            amount: amount,
+            term: term,
+            interest: 8,
+            status: 'active',
+            date: new Date().toISOString().split('T')[0],
+            monthly_payment: monthlyPayment,
+            funded: 0,
+            investors: [],
+            documents: documentRecord,
+            agreement_accepted: true,
+            agreement_date: new Date().toISOString()
+        };
+
+        const { data: loan, error: loanError } = await supabase
+            .from('loans')
+            .insert([newLoan])
+            .select()
+            .single();
+
+        if (loanError) throw loanError;
+
+        // Update user's KYC status
+        const { error: userError } = await supabase
+            .from('users')
+            .update({ 
+                kyc_status: 'verified',
+                documents: supabase.sql`jsonb_set(COALESCE(documents, '[]'::jsonb), '{${currentUser.documents ? currentUser.documents.length : 0}}', 
+                    '{"type": "loan_documents", "loanId": ${loan.id}, "date": "${new Date().toISOString()}", "documents": ${JSON.stringify(documentRecord)}}'::jsonb)`
+            })
+            .eq('id', currentUser.id);
+
+        if (userError) throw userError;
+
+        // Update current user
+        currentUser.kyc_status = 'verified';
+        localStorage.setItem('friendlend_currentUser', JSON.stringify(currentUser));
+
+        // Close agreement modal
+        document.getElementById('loan-agreement-modal').style.display = 'none';
+
+        // Update success modal
+        const successSummary = document.getElementById('success-document-summary');
+        if (successSummary) {
+            successSummary.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <i class="fas fa-id-card" style="color: #3498db; width: 20px;"></i>
+                    <span style="font-size: 0.9rem;">Aadhaar: <strong>${uploadedFiles.aadhaar.name}</strong></span>
+                    <button onclick="window.open('${aadhaarUrl}', '_blank')" style="background: #3498db; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
+                        <i class="fas fa-external-link-alt"></i> View
+                    </button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <i class="fas fa-file-pdf" style="color: #e74c3c; width: 20px;"></i>
+                    <span style="font-size: 0.9rem;">Undertaking: <strong>${uploadedFiles.undertaking.name}</strong></span>
+                    <button onclick="window.open('${undertakingUrl}', '_blank')" style="background: #e74c3c; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-left: auto; cursor: pointer;">
+                        <i class="fas fa-external-link-alt"></i> View
+                    </button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-check-circle" style="color: #2ecc71; width: 20px;"></i>
+                    <span style="font-size: 0.9rem;">Documents submitted successfully</span>
+                </div>
+            `;
+        }
+
+        // Show success modal
+        document.getElementById('upload-success-modal').style.display = 'flex';
+
+        // Update displays
+        await renderLoanRequests();
+        await renderInvestmentOpportunities();
+
+        showNotification('Loan request created with documents successfully!');
+    } catch (error) {
+        showNotification('Error creating loan: ' + error.message);
+    }
+}
+
+// Process Razorpay payment
+function processRazorpayPayment(loanId, amount) {
+    const options = {
+        key: RAZORPAY_KEY_ID,
+        amount: amount * 100,
+        currency: 'INR',
+        name: 'FriendFunds',
+        description: 'Investment in Loan',
+        handler: async function (response) {
+            await processInvestment(loanId, amount, response);
+        },
+        prefill: {
+            name: currentUser.username,
+            email: currentUser.email,
+            contact: ''
+        },
+        theme: {
+            color: '#3498db'
+        }
     };
 
-    investments.push(investment);
-    loan.investors.push({
-        investor: currentUser.username,
-        amount: parseInt(amount),
-        paymentId: paymentResponse.razorpay_payment_id
-    });
-
-    // Save all data
-    localStorage.setItem('friendlend_loans', JSON.stringify(loans));
-    localStorage.setItem('friendlend_users', JSON.stringify(users));
-    localStorage.setItem('friendlend_investments', JSON.stringify(investments));
-    localStorage.setItem('friendlend_currentUser', JSON.stringify(currentUser));
-
-    // Close invest modal
-    document.getElementById('invest-modal').style.display = 'none';
-
-    // Update displays
-    renderLoanRequests();
-    renderInvestmentOpportunities();
-
-    if (document.getElementById('user-dashboard').style.display === 'block') {
-        renderUserDashboard();
-    }
-
-    showNotification(`Successfully invested ₹${amount} in ${loan.purpose} via Razorpay! Payment ID: ${paymentResponse.razorpay_payment_id}`);
-    simulateRealTimeUpdate();
+    const rzp = new Razorpay(options);
+    rzp.open();
 }
 
-// Initialize File Upload Handlers
+// Process investment
+async function processInvestment(loanId, amount, paymentResponse) {
+    try {
+        // Get loan details
+        const { data: loan, error: loanError } = await supabase
+            .from('loans')
+            .select('*')
+            .eq('id', loanId)
+            .single();
+
+        if (loanError) throw loanError;
+
+        const remaining = loan.amount - loan.funded;
+        if (amount > remaining) {
+            showNotification(`Amount exceeds remaining loan amount of ₹${remaining}`);
+            return;
+        }
+
+        if (amount > currentUser.balance) {
+            showNotification('Insufficient balance');
+            return;
+        }
+
+        // Update loan
+        const newFunded = loan.funded + amount;
+        const newStatus = newFunded >= loan.amount ? 'funded' : 'active';
+        
+        const investors = loan.investors || [];
+        investors.push({
+            investor: currentUser.username,
+            amount: amount,
+            paymentId: paymentResponse.razorpay_payment_id
+        });
+
+        const { error: updateError } = await supabase
+            .from('loans')
+            .update({
+                funded: newFunded,
+                status: newStatus,
+                investors: investors
+            })
+            .eq('id', loanId);
+
+        if (updateError) throw updateError;
+
+        // Update user balance
+        const newBalance = currentUser.balance - amount;
+        const { error: userError } = await supabase
+            .from('users')
+            .update({ balance: newBalance })
+            .eq('id', currentUser.id);
+
+        if (userError) throw userError;
+
+        // Create investment record
+        const investment = {
+            loan_id: loanId,
+            investor: currentUser.username,
+            amount: amount,
+            date: new Date().toISOString().split('T')[0],
+            expected_return: Math.round(amount * (1 + 8 / 100 * loan.term / 12)),
+            status: 'active',
+            payment_id: paymentResponse.razorpay_payment_id,
+            payment_method: 'Razorpay'
+        };
+
+        const { error: investError } = await supabase
+            .from('investments')
+            .insert([investment]);
+
+        if (investError) throw investError;
+
+        // Update current user balance
+        currentUser.balance = newBalance;
+        localStorage.setItem('friendlend_currentUser', JSON.stringify(currentUser));
+
+        // Close invest modal
+        document.getElementById('invest-modal').style.display = 'none';
+
+        // Update displays
+        await renderLoanRequests();
+        await renderInvestmentOpportunities();
+
+        if (document.getElementById('user-dashboard').style.display === 'block') {
+            await renderUserDashboard();
+        }
+
+        showNotification(`Successfully invested ₹${amount} in ${loan.purpose}!`);
+        simulateRealTimeUpdate();
+    } catch (error) {
+        showNotification('Investment failed: ' + error.message);
+    }
+}
+
+// ============== RENDER FUNCTIONS ==============
+
+// Render loan requests
+async function renderLoanRequests() {
+    const container = document.getElementById('active-loans-container');
+    if (!container) return;
+
+    try {
+        const { data: loans, error } = await supabase
+            .from('loans')
+            .select('*')
+            .eq('status', 'active')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        container.innerHTML = '';
+
+        if (!loans || loans.length === 0) {
+            container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No active loan requests at the moment.</p>';
+            return;
+        }
+
+        loans.forEach(loan => {
+            const progress = (loan.funded / loan.amount) * 100;
+            const kycStatus = loan.documents ?
+                '<span style="color: #2ecc71; font-size: 0.8rem;"><i class="fas fa-check-circle"></i> KYC Done</span>' :
+                '<span style="color: #e74c3c; font-size: 0.8rem;"><i class="fas fa-times-circle"></i> KYC Pending</span>';
+
+            const element = document.createElement('div');
+            element.className = 'loan-request';
+            element.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h4 style="margin: 0;">${loan.purpose} by ${loan.borrower}</h4>
+                    ${kycStatus}
+                </div>
+                <p><strong>Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
+                <p><strong>Term:</strong> ${loan.term} months</p>
+                <p><strong>Monthly Payment:</strong> ₹${loan.monthly_payment.toLocaleString()}</p>
+                <p><strong>Funded:</strong> ${progress.toFixed(1)}% (₹${loan.funded.toLocaleString()})</p>
+                <div class="progress-bar">
+                    <div class="progress" style="width: ${progress}%"></div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <button class="btn btn-primary view-loan" data-id="${loan.id}">View Details</button>
+                    ${currentUser && currentUser.username !== loan.borrower ? `<button class="btn btn-accent invest-btn" data-id="${loan.id}">Invest</button>` : ''}
+                </div>
+            `;
+            container.appendChild(element);
+        });
+
+        // Add event listeners
+        document.querySelectorAll('.view-loan').forEach(button => {
+            button.addEventListener('click', function () {
+                const loanId = parseInt(this.getAttribute('data-id'));
+                showLoanDetails(loanId);
+            });
+        });
+
+        document.querySelectorAll('.invest-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                if (!currentUser) {
+                    showNotification('Please login to invest');
+                    document.getElementById('login-modal').style.display = 'flex';
+                    return;
+                }
+                const loanId = parseInt(this.getAttribute('data-id'));
+                showInvestModal(loanId);
+            });
+        });
+    } catch (error) {
+        console.error('Error rendering loans:', error);
+    }
+}
+
+// Render investment opportunities
+async function renderInvestmentOpportunities() {
+    const container = document.getElementById('investment-opportunities-container');
+    if (!container) return;
+
+    try {
+        const { data: loans, error } = await supabase
+            .from('loans')
+            .select('*')
+            .eq('status', 'active')
+            .filter('funded', 'lt', supabase.column('amount'))
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        container.innerHTML = '';
+
+        if (!loans || loans.length === 0) {
+            container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No investment opportunities at the moment.</p>';
+            return;
+        }
+
+        loans.forEach(loan => {
+            const remaining = loan.amount - loan.funded;
+            const progress = (loan.funded / loan.amount) * 100;
+            const kycStatus = loan.documents ?
+                '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> KYC Verified</span>' :
+                '<span style="color: #e74c3c;"><i class="fas fa-times-circle"></i> KYC Pending</span>';
+
+            const element = document.createElement('div');
+            element.className = 'investment-opportunity';
+            element.innerHTML = `
+                <h4>${loan.purpose} by ${loan.borrower}</h4>
+                <p><strong>Amount Needed:</strong> ₹${remaining.toLocaleString()}</p>
+                <p><strong>Expected Return:</strong> 8% per annum</p>
+                <p><strong>KYC Status:</strong> ${kycStatus}</p>
+                <div class="progress-bar">
+                    <div class="progress" style="width: ${progress}%"></div>
+                </div>
+                <button class="btn btn-accent invest-btn" data-id="${loan.id}" style="margin-top: 15px;">Invest Now</button>
+            `;
+            container.appendChild(element);
+        });
+
+        document.querySelectorAll('.invest-btn').forEach(button => {
+            button.addEventListener('click', function () {
+                if (!currentUser) {
+                    showNotification('Please login to invest');
+                    document.getElementById('login-modal').style.display = 'flex';
+                    return;
+                }
+                const loanId = parseInt(this.getAttribute('data-id'));
+                showInvestModal(loanId);
+            });
+        });
+    } catch (error) {
+        console.error('Error rendering opportunities:', error);
+    }
+}
+
+// Show loan details
+async function showLoanDetails(loanId) {
+    try {
+        const { data: loan, error } = await supabase
+            .from('loans')
+            .select('*')
+            .eq('id', loanId)
+            .single();
+
+        if (error || !loan) return;
+
+        const progress = (loan.funded / loan.amount) * 100;
+        const totalRepayment = loan.monthly_payment * loan.term;
+        const totalInterest = totalRepayment - loan.amount;
+        const monthlyInterest = totalInterest / loan.term;
+        const createdDate = new Date(loan.date);
+        const today = new Date();
+        const daysSinceCreation = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
+
+        const documentStatus = loan.documents ?
+            '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> Documents Uploaded</span>' :
+            '<span style="color: #e74c3c;"><i class="fas fa-times-circle"></i> Documents Pending</span>';
+
+        let documentsHtml = '';
+        if (loan.documents) {
+            documentsHtml = `
+                <h4 style="margin-top: 1.5rem;">Documents (Click to View)</h4>
+                <div class="document-viewer">
+                    <div class="document-item">
+                        <i class="fas fa-id-card" style="color: #3498db;"></i>
+                        <div class="document-info">
+                            <div class="document-name">Aadhaar Card</div>
+                            <div class="document-meta">${loan.documents.aadhaar.name}</div>
+                        </div>
+                        <button onclick="window.open('${loan.documents.aadhaar.dataUrl}', '_blank')" class="view-document" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </button>
+                    </div>
+                    <div class="document-item">
+                        <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
+                        <div class="document-info">
+                            <div class="document-name">Signed Undertaking</div>
+                            <div class="document-meta">${loan.documents.undertaking.name}</div>
+                        </div>
+                        <button onclick="window.open('${loan.documents.undertaking.dataUrl}', '_blank')" class="view-document" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-external-link-alt"></i> View
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        document.getElementById('loan-detail-title').textContent = `Loan Details: ${loan.purpose}`;
+        document.getElementById('loan-detail-content').innerHTML = `
+            <div class="loan-details">
+                <p><strong>Borrower:</strong> ${loan.borrower}</p>
+                <p><strong>Purpose:</strong> ${loan.purpose}</p>
+                <p><strong>Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
+                <p><strong>Term:</strong> ${loan.term} months</p>
+                <p><strong>Interest Rate:</strong> ${loan.interest}% per annum</p>
+                <p><strong>Monthly Payment:</strong> ₹${loan.monthly_payment.toLocaleString()}</p>
+                <p><strong>Total Repayment:</strong> ₹${totalRepayment.toLocaleString()}</p>
+                <p><strong>Total Interest:</strong> ₹${totalInterest.toLocaleString()}</p>
+                <p><strong>Monthly Interest:</strong> ₹${monthlyInterest.toLocaleString()}</p>
+                <p><strong>Created:</strong> ${loan.date} (${daysSinceCreation} days ago)</p>
+                <p><strong>Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
+                <p><strong>KYC Status:</strong> ${documentStatus}</p>
+                <p><strong>Funded:</strong> ${progress.toFixed(1)}% (₹${loan.funded.toLocaleString()})</p>
+                <div class="progress-bar">
+                    <div class="progress" style="width: ${progress}%"></div>
+                </div>
+            </div>
+            ${documentsHtml}
+            <h4 style="margin-top: 1.5rem;">Investors</h4>
+            ${loan.investors && loan.investors.length > 0 ?
+                loan.investors.map(inv => `<p>${inv.investor}: ₹${inv.amount.toLocaleString()}</p>`).join('') :
+                '<p>No investors yet</p>'
+            }
+            ${currentUser && currentUser.username !== loan.borrower && loan.status === 'active' ?
+                `<button class="btn btn-accent invest-btn" data-id="${loan.id}" style="margin-top: 1.5rem;">Invest in this Loan</button>` : ''}
+        `;
+
+        document.getElementById('loan-detail-modal').style.display = 'flex';
+
+        const investBtn = document.querySelector('#loan-detail-content .invest-btn');
+        if (investBtn) {
+            investBtn.addEventListener('click', function () {
+                document.getElementById('loan-detail-modal').style.display = 'none';
+                showInvestModal(loanId);
+            });
+        }
+    } catch (error) {
+        console.error('Error loading loan details:', error);
+    }
+}
+
+// Show invest modal
+async function showInvestModal(loanId) {
+    try {
+        const { data: loan, error } = await supabase
+            .from('loans')
+            .select('*')
+            .eq('id', loanId)
+            .single();
+
+        if (error || !loan) return;
+
+        if (currentUser && currentUser.username === loan.borrower) {
+            showNotification("You cannot invest in your own loan");
+            return;
+        }
+
+        const remaining = loan.amount - loan.funded;
+        const investAmount = document.getElementById('invest-amount');
+        if (investAmount) {
+            investAmount.value = '';
+            investAmount.setAttribute('max', remaining);
+            investAmount.setAttribute('placeholder', `Max: ₹${remaining.toLocaleString()}`);
+        }
+
+        document.getElementById('invest-loan-purpose').textContent = `Purpose: ${loan.purpose}`;
+        document.getElementById('invest-loan-amount').textContent = `Total Amount: ₹${loan.amount.toLocaleString()}`;
+        document.getElementById('invest-loan-term').textContent = `Term: ${loan.term} months`;
+        document.getElementById('invest-monthly-payment').textContent = `Monthly Payment: ₹${loan.monthly_payment.toLocaleString()}`;
+
+        document.getElementById('invest-form').setAttribute('data-loan-id', loanId);
+        document.getElementById('invest-modal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error showing invest modal:', error);
+    }
+}
+
+// Render user dashboard
+async function renderUserDashboard() {
+    if (!currentUser) return;
+
+    const userLoansContainer = document.getElementById('user-loans-container');
+    const userInvestmentsContainer = document.getElementById('user-investments-container');
+    const userProfileContainer = document.getElementById('user-profile-container');
+
+    try {
+        // Get user loans
+        const { data: userLoans, error: loansError } = await supabase
+            .from('loans')
+            .select('*')
+            .eq('borrower', currentUser.username);
+
+        if (loansError) throw loansError;
+
+        userLoansContainer.innerHTML = '';
+
+        if (!userLoans || userLoans.length === 0) {
+            userLoansContainer.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">You have no active loans.</p>';
+        } else {
+            userLoans.forEach(loan => {
+                const progress = (loan.funded / loan.amount) * 100;
+                const totalRepayment = loan.monthly_payment * loan.term;
+                const element = document.createElement('div');
+                element.className = 'loan-request';
+                element.innerHTML = `
+                    <h4>${loan.purpose}</h4>
+                    <p><strong>Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
+                    <p><strong>Funded:</strong> ${progress.toFixed(1)}%</p>
+                    <p><strong>Term:</strong> ${loan.term} months</p>
+                    <p><strong>Monthly Payment:</strong> ₹${loan.monthly_payment.toLocaleString()}</p>
+                    <p><strong>Total Repayment:</strong> ₹${totalRepayment.toLocaleString()}</p>
+                    <p><strong>Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
+                    <p><strong>Documents:</strong> ${loan.documents ?
+                        '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> Uploaded</span>' :
+                        '<span style="color: #e74c3c;"><i class="fas fa-times-circle"></i> Pending</span>'}
+                    </p>
+                    <div class="progress-bar">
+                        <div class="progress" style="width: ${progress}%"></div>
+                    </div>
+                    <button class="btn btn-primary view-loan" data-id="${loan.id}" style="margin-top: 15px;">View Details</button>
+                `;
+                userLoansContainer.appendChild(element);
+            });
+
+            userLoansContainer.querySelectorAll('.view-loan').forEach(button => {
+                button.addEventListener('click', function () {
+                    const loanId = parseInt(this.getAttribute('data-id'));
+                    showLoanDetails(loanId);
+                });
+            });
+        }
+
+        // Get user investments
+        const { data: userInvestments, error: investError } = await supabase
+            .from('investments')
+            .select('*')
+            .eq('investor', currentUser.username);
+
+        if (investError) throw investError;
+
+        userInvestmentsContainer.innerHTML = '';
+
+        if (!userInvestments || userInvestments.length === 0) {
+            userInvestmentsContainer.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">You have no investments.</p>';
+        } else {
+            for (const investment of userInvestments) {
+                const { data: loan, error: loanError } = await supabase
+                    .from('loans')
+                    .select('*')
+                    .eq('id', investment.loan_id)
+                    .single();
+
+                if (loanError) continue;
+
+                const element = document.createElement('div');
+                element.className = 'investment-opportunity';
+                element.innerHTML = `
+                    <h4>${loan.purpose} by ${loan.borrower}</h4>
+                    <p><strong>Invested Amount:</strong> ₹${investment.amount.toLocaleString()}</p>
+                    <p><strong>Expected Return:</strong> ₹${investment.expected_return.toLocaleString()}</p>
+                    <p><strong>Payment Method:</strong> ${investment.payment_method || 'Wallet'}</p>
+                    ${investment.payment_id ? `<p><small>Payment ID: ${investment.payment_id}</small></p>` : ''}
+                    <p><strong>Borrower KYC:</strong> ${loan.documents ?
+                        '<span style="color: #2ecc71;">Verified</span>' :
+                        '<span style="color: #e74c3c;">Pending</span>'}
+                    </p>
+                    <p><strong>Status:</strong> <span style="color: ${investment.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${investment.status}</span></p>
+                    <button class="btn btn-primary view-investment" data-id="${investment.id}">View Details</button>
+                `;
+                userInvestmentsContainer.appendChild(element);
+            }
+
+            userInvestmentsContainer.querySelectorAll('.view-investment').forEach(button => {
+                button.addEventListener('click', function () {
+                    const investmentId = parseInt(this.getAttribute('data-id'));
+                    showInvestmentDetails(investmentId);
+                });
+            });
+        }
+
+        // Render profile
+        const totalInvested = userInvestments ? userInvestments.reduce((sum, inv) => sum + inv.amount, 0) : 0;
+        const totalBorrowed = userLoans ? userLoans.reduce((sum, loan) => sum + loan.amount, 0) : 0;
+        const kycBadge = currentUser.kyc_status === 'verified' ?
+            '<span class="kyc-badge kyc-verified"><i class="fas fa-check-circle"></i> KYC Verified</span>' :
+            '<span class="kyc-badge kyc-pending"><i class="fas fa-clock"></i> KYC Pending</span>';
+
+        userProfileContainer.innerHTML = `
+            <div class="loan-details">
+                <p><strong>Username:</strong> ${currentUser.username}</p>
+                <p><strong>Email:</strong> ${currentUser.email}</p>
+                <p><strong>Account Balance:</strong> ₹${currentUser.balance.toLocaleString()}</p>
+                <p><strong>Active Loans:</strong> ${userLoans ? userLoans.length : 0} (₹${totalBorrowed.toLocaleString()})</p>
+                <p><strong>Active Investments:</strong> ${userInvestments ? userInvestments.length : 0} (₹${totalInvested.toLocaleString()})</p>
+                <p><strong>KYC Status:</strong> ${kycBadge}</p>
+                <p><strong>Documents:</strong> ${currentUser.documents ? currentUser.documents.length : 0}</p>
+            </div>
+            <div style="margin-top: 1.5rem;">
+                <button class="btn btn-danger" id="logout-btn">Logout</button>
+            </div>
+        `;
+
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', logout);
+        }
+    } catch (error) {
+        console.error('Error rendering user dashboard:', error);
+    }
+}
+
+// Render user documents
+async function renderUserDocuments() {
+    const container = document.getElementById('user-documents-container');
+    if (!container || !currentUser) return;
+
+    try {
+        const { data: userLoans, error } = await supabase
+            .from('loans')
+            .select('*')
+            .eq('borrower', currentUser.username)
+            .not('documents', 'is', null);
+
+        if (error) throw error;
+
+        if (!userLoans || userLoans.length === 0) {
+            container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No documents uploaded yet.</p>';
+            return;
+        }
+
+        let html = '<div class="document-viewer">';
+
+        userLoans.forEach(loan => {
+            if (loan.documents) {
+                html += `
+                    <div style="background: #f8f9fa; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+                        <h4 style="margin: 0 0 1rem 0; color: #2c3e50;">Loan: ${loan.purpose} (₹${loan.amount.toLocaleString()})</h4>
+                        
+                        <div class="document-item">
+                            <i class="fas fa-id-card" style="color: #3498db;"></i>
+                            <div class="document-info">
+                                <div class="document-name">Aadhaar Card</div>
+                                <div class="document-meta">${loan.documents.aadhaar.name}</div>
+                            </div>
+                            <button onclick="window.open('${loan.documents.aadhaar.dataUrl}', '_blank')" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
+                                <i class="fas fa-external-link-alt"></i> View
+                            </button>
+                        </div>
+                        
+                        <div class="document-item">
+                            <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
+                            <div class="document-info">
+                                <div class="document-name">Signed Undertaking</div>
+                                <div class="document-meta">${loan.documents.undertaking.name}</div>
+                            </div>
+                            <button onclick="window.open('${loan.documents.undertaking.dataUrl}', '_blank')" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
+                                <i class="fas fa-external-link-alt"></i> View
+                            </button>
+                        </div>
+                        
+                    </div>
+                `;
+            }
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
+    } catch (error) {
+        console.error('Error rendering documents:', error);
+    }
+}
+
+// Show investment details
+async function showInvestmentDetails(investmentId) {
+    try {
+        const { data: investment, error } = await supabase
+            .from('investments')
+            .select('*')
+            .eq('id', investmentId)
+            .single();
+
+        if (error || !investment) return;
+
+        const { data: loan, error: loanError } = await supabase
+            .from('loans')
+            .select('*')
+            .eq('id', investment.loan_id)
+            .single();
+
+        if (loanError || !loan) return;
+
+        const totalReturn = investment.expected_return;
+        const profit = totalReturn - investment.amount;
+        const roi = (profit / investment.amount) * 100;
+        const monthlyReturn = (totalReturn - investment.amount) / loan.term;
+
+        document.getElementById('loan-detail-title').textContent = `Investment Details: ${loan.purpose}`;
+        document.getElementById('loan-detail-content').innerHTML = `
+            <div class="loan-details">
+                <p><strong>Loan Purpose:</strong> ${loan.purpose}</p>
+                <p><strong>Borrower:</strong> ${loan.borrower}</p>
+                <p><strong>Investment Amount:</strong> ₹${investment.amount.toLocaleString()}</p>
+                <p><strong>Investment Date:</strong> ${investment.date}</p>
+                <p><strong>Payment Method:</strong> ${investment.payment_method || 'Wallet'}</p>
+                ${investment.payment_id ? `<p><strong>Payment ID:</strong> ${investment.payment_id}</p>` : ''}
+                <p><strong>Loan Term:</strong> ${loan.term} months</p>
+                <p><strong>Interest Rate:</strong> ${loan.interest}% per annum</p>
+                <p><strong>Expected Total Return:</strong> ₹${totalReturn.toLocaleString()}</p>
+                <p><strong>Expected Profit:</strong> ₹${profit.toLocaleString()}</p>
+                <p><strong>ROI:</strong> ${roi.toFixed(2)}%</p>
+                <p><strong>Monthly Return:</strong> ₹${monthlyReturn.toLocaleString()}</p>
+                <p><strong>Borrower KYC:</strong> ${loan.documents ?
+                    '<span style="color: #2ecc71;">Verified</span>' :
+                    '<span style="color: #e74c3c;">Pending</span>'}
+                </p>
+                <p><strong>Status:</strong> <span style="color: ${investment.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${investment.status}</span></p>
+            </div>
+            <h4 style="margin-top: 1.5rem;">Loan Details</h4>
+            <div class="loan-details">
+                <p><strong>Total Loan Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
+                <p><strong>Amount Funded:</strong> ₹${loan.funded.toLocaleString()} (${((loan.funded / loan.amount) * 100).toFixed(1)}%)</p>
+                <p><strong>Monthly Payment:</strong> ₹${loan.monthly_payment.toLocaleString()}</p>
+                <p><strong>Loan Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
+            </div>
+        `;
+
+        document.getElementById('loan-detail-modal').style.display = 'flex';
+    } catch (error) {
+        console.error('Error showing investment details:', error);
+    }
+}
+
+// ============== UTILITY FUNCTIONS ==============
+
+// Show section
+function showSection(target) {
+    if (target === 'dashboard' && !currentUser) {
+        showNotification('Please login first to access the dashboard');
+        document.getElementById('login-modal').style.display = 'flex';
+        return;
+    }
+
+    document.querySelectorAll('section').forEach(section => {
+        section.style.display = 'none';
+    });
+
+    if (target === 'home') {
+        document.querySelector('.hero').style.display = 'block';
+        document.querySelector('.features').style.display = 'block';
+        document.getElementById('dashboard').style.display = 'block';
+    } else if (target === 'dashboard') {
+        document.getElementById('user-dashboard').style.display = 'block';
+        renderUserDashboard();
+    } else {
+        document.getElementById(target).style.display = 'block';
+    }
+
+    document.querySelector('.nav-links').classList.remove('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Show notification
+function showNotification(message) {
+    const notification = document.getElementById('notification');
+    const notificationText = document.getElementById('notification-text');
+
+    if (notification && notificationText) {
+        notificationText.textContent = message;
+        notification.classList.add('show');
+
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
+    }
+}
+
+// Update UI after login
+function updateUIAfterLogin() {
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) {
+        loginBtn.textContent = 'Logout';
+    }
+}
+
+// Initialize file upload handlers
 function initFileUploadHandlers() {
     const aadhaarUpload = document.getElementById('aadhaar-upload');
     const undertakingUpload = document.getElementById('undertaking-upload');
@@ -847,7 +1508,7 @@ function initFileUploadHandlers() {
     }
 }
 
-// Handle File Upload
+// Handle file upload
 function handleFileUpload(file, type) {
     if (!file) return;
 
@@ -874,7 +1535,7 @@ function handleFileUpload(file, type) {
     }
 }
 
-// Update File Preview
+// Update file preview
 function updateFilePreview(file, type) {
     const preview = document.getElementById(`${type}-preview`);
     const area = document.getElementById(`${type}-upload-area`);
@@ -898,7 +1559,7 @@ function updateFilePreview(file, type) {
     area.classList.add('has-file');
 }
 
-// Remove File (make global)
+// Remove file
 window.removeFile = function (type) {
     if (type === 'aadhaar') {
         uploadedFiles.aadhaar = null;
@@ -930,7 +1591,7 @@ window.removeFile = function (type) {
     }
 };
 
-// Reset Uploads
+// Reset uploads
 function resetUploads() {
     uploadedFiles = {
         aadhaar: null,
@@ -940,7 +1601,6 @@ function resetUploads() {
     document.getElementById('aadhaar-upload').value = '';
     document.getElementById('undertaking-upload').value = '';
 
-    // Reset previews
     ['aadhaar', 'undertaking'].forEach(type => {
         const area = document.getElementById(`${type}-upload-area`);
         const preview = document.getElementById(`${type}-preview`);
@@ -965,523 +1625,28 @@ function resetUploads() {
     });
 }
 
-// Show Section
-function showSection(target) {
-    if (target === 'dashboard' && !currentUser) {
-        showNotification('Please login first to access the dashboard');
-        document.getElementById('login-modal').style.display = 'flex';
-        return;
-    }
-
-    document.querySelectorAll('section').forEach(section => {
-        section.style.display = 'none';
-    });
-
-    if (target === 'home') {
-        document.querySelector('.hero').style.display = 'block';
-        document.querySelector('.features').style.display = 'block';
-        document.getElementById('dashboard').style.display = 'block';
-    } else if (target === 'dashboard') {
-        document.getElementById('user-dashboard').style.display = 'block';
-        renderUserDashboard();
-    } else {
-        document.getElementById(target).style.display = 'block';
-    }
-
-    document.querySelector('.nav-links').classList.remove('active');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-// Show Notification
-function showNotification(message) {
-    const notification = document.getElementById('notification');
-    const notificationText = document.getElementById('notification-text');
-
-    if (notification && notificationText) {
-        notificationText.textContent = message;
-        notification.classList.add('show');
-
-        setTimeout(() => {
-            notification.classList.remove('show');
-        }, 3000);
-    }
-}
-
-// Update UI After Login
-function updateUIAfterLogin() {
-    const loginBtn = document.getElementById('login-btn');
-    if (loginBtn) {
-        loginBtn.textContent = 'Logout';
-
-        loginBtn.replaceWith(loginBtn.cloneNode(true));
-        const newLoginBtn = document.getElementById('login-btn');
-
-        newLoginBtn.addEventListener('click', function (e) {
-            e.preventDefault();
-            currentUser = null;
-            localStorage.removeItem('friendlend_currentUser');
-            localStorage.removeItem('friendlend_rememberMe');
-            this.textContent = 'Login';
-            document.getElementById('user-dashboard').style.display = 'none';
-            showSection('home');
-            showNotification('Logged out successfully');
-
-            this.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.getElementById('login-modal').style.display = 'flex';
-            });
-        });
-    }
-}
-
-// Render Functions
-function renderLoanRequests() {
-    const container = document.getElementById('active-loans-container');
-    if (!container) return;
-
-    container.innerHTML = '';
-    const activeLoans = loans.filter(loan => loan.status === 'active');
-
-    if (activeLoans.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No active loan requests at the moment.</p>';
-        return;
-    }
-
-    activeLoans.forEach(loan => {
-        const progress = (loan.funded / loan.amount) * 100;
-        const kycStatus = loan.documents ?
-            '<span style="color: #2ecc71; font-size: 0.8rem;"><i class="fas fa-check-circle"></i> KYC Done</span>' :
-            '<span style="color: #e74c3c; font-size: 0.8rem;"><i class="fas fa-times-circle"></i> KYC Pending</span>';
-
-        const element = document.createElement('div');
-        element.className = 'loan-request';
-        element.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <h4 style="margin: 0;">${loan.purpose} by ${loan.borrower}</h4>
-                ${kycStatus}
-            </div>
-            <p><strong>Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
-            <p><strong>Term:</strong> ${loan.term} months</p>
-            <p><strong>Monthly Payment:</strong> ₹${loan.monthlyPayment.toLocaleString()}</p>
-            <p><strong>Funded:</strong> ${progress.toFixed(1)}% (₹${loan.funded.toLocaleString()})</p>
-            <div class="progress-bar">
-                <div class="progress" style="width: ${progress}%"></div>
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <button class="btn btn-primary view-loan" data-id="${loan.id}">View Details</button>
-                ${currentUser && currentUser.username !== loan.borrower ? `<button class="btn btn-accent invest-btn" data-id="${loan.id}">Invest</button>` : ''}
-            </div>
-        `;
-        container.appendChild(element);
-    });
-
-    document.querySelectorAll('.view-loan').forEach(button => {
-        button.addEventListener('click', function () {
-            const loanId = parseInt(this.getAttribute('data-id'));
-            showLoanDetails(loanId);
-        });
-    });
-
-    document.querySelectorAll('.invest-btn').forEach(button => {
-        button.addEventListener('click', function () {
-            if (!currentUser) {
-                showNotification('Please login to invest');
-                document.getElementById('login-modal').style.display = 'flex';
-                return;
-            }
-            const loanId = parseInt(this.getAttribute('data-id'));
-            showInvestModal(loanId);
-        });
-    });
-}
-
-function renderInvestmentOpportunities() {
-    const container = document.getElementById('investment-opportunities-container');
-    if (!container) return;
-
-    container.innerHTML = '';
-    const opportunities = loans.filter(loan => loan.status === 'active' && loan.funded < loan.amount);
-
-    if (opportunities.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No investment opportunities at the moment.</p>';
-        return;
-    }
-
-    opportunities.forEach(loan => {
-        const remaining = loan.amount - loan.funded;
-        const progress = (loan.funded / loan.amount) * 100;
-        const kycStatus = loan.documents ?
-            '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> KYC Verified</span>' :
-            '<span style="color: #e74c3c;"><i class="fas fa-times-circle"></i> KYC Pending</span>';
-
-        const element = document.createElement('div');
-        element.className = 'investment-opportunity';
-        element.innerHTML = `
-            <h4>${loan.purpose} by ${loan.borrower}</h4>
-            <p><strong>Amount Needed:</strong> ₹${remaining.toLocaleString()}</p>
-            <p><strong>Expected Return:</strong> 8% per annum</p>
-            <p><strong>KYC Status:</strong> ${kycStatus}</p>
-            <div class="progress-bar">
-                <div class="progress" style="width: ${progress}%"></div>
-            </div>
-            <button class="btn btn-accent invest-btn" data-id="${loan.id}" style="margin-top: 15px;">Invest Now</button>
-        `;
-        container.appendChild(element);
-    });
-
-    document.querySelectorAll('.invest-btn').forEach(button => {
-        button.addEventListener('click', function () {
-            if (!currentUser) {
-                showNotification('Please login to invest');
-                document.getElementById('login-modal').style.display = 'flex';
-                return;
-            }
-            const loanId = parseInt(this.getAttribute('data-id'));
-            showInvestModal(loanId);
-        });
-    });
-}
-
-function showLoanDetails(loanId) {
-    const loan = loans.find(l => l.id === loanId);
-    if (!loan) return;
-
-    const progress = (loan.funded / loan.amount) * 100;
-    const totalRepayment = loan.monthlyPayment * loan.term;
-    const totalInterest = totalRepayment - loan.amount;
-    const monthlyInterest = totalInterest / loan.term;
-    const createdDate = new Date(loan.date);
-    const today = new Date();
-    const daysSinceCreation = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
-
-    const documentStatus = loan.documents ?
-        '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> Documents Uploaded</span>' :
-        '<span style="color: #e74c3c;"><i class="fas fa-times-circle"></i> Documents Pending</span>';
-
-    let documentsHtml = '';
-    if (loan.documents) {
-        documentsHtml = `
-            <h4 style="margin-top: 1.5rem;">Documents (Click to View)</h4>
-            <div class="document-viewer">
-                <div class="document-item">
-                    <i class="fas fa-id-card" style="color: #3498db;"></i>
-                    <div class="document-info">
-                        <div class="document-name">Aadhaar Card</div>
-                        <div class="document-meta">${loan.documents.aadhaar.name} • ${(loan.documents.aadhaar.size / 1024).toFixed(2)} KB</div>
-                    </div>
-                    <button onclick="openDocumentInBrowser('aadhaar', ${loan.id})" class="view-document" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
-                        <i class="fas fa-external-link-alt"></i> View in Browser
-                    </button>
-                </div>
-                <div class="document-item">
-                    <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
-                    <div class="document-info">
-                        <div class="document-name">Signed Undertaking</div>
-                        <div class="document-meta">${loan.documents.undertaking.name} • ${(loan.documents.undertaking.size / 1024).toFixed(2)} KB</div>
-                    </div>
-                    <button onclick="openDocumentInBrowser('undertaking', ${loan.id})" class="view-document" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
-                        <i class="fas fa-external-link-alt"></i> View in Browser
-                    </button>
-            </div>
-        `;
-    }
-
-    document.getElementById('loan-detail-title').textContent = `Loan Details: ${loan.purpose}`;
-    document.getElementById('loan-detail-content').innerHTML = `
-        <div class="loan-details">
-            <p><strong>Borrower:</strong> ${loan.borrower}</p>
-            <p><strong>Purpose:</strong> ${loan.purpose}</p>
-            <p><strong>Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
-            <p><strong>Term:</strong> ${loan.term} months</p>
-            <p><strong>Interest Rate:</strong> ${loan.interest}% per annum</p>
-            <p><strong>Monthly Payment:</strong> ₹${loan.monthlyPayment.toLocaleString()}</p>
-            <p><strong>Total Repayment:</strong> ₹${totalRepayment.toLocaleString()}</p>
-            <p><strong>Total Interest:</strong> ₹${totalInterest.toLocaleString()}</p>
-            <p><strong>Monthly Interest:</strong> ₹${monthlyInterest.toLocaleString()}</p>
-            <p><strong>Created:</strong> ${loan.date} (${daysSinceCreation} days ago)</p>
-            <p><strong>Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
-            <p><strong>KYC Status:</strong> ${documentStatus}</p>
-            <p><strong>Funded:</strong> ${progress.toFixed(1)}% (₹${loan.funded.toLocaleString()})</p>
-            <div class="progress-bar">
-                <div class="progress" style="width: ${progress}%"></div>
-            </div>
-        </div>
-        ${documentsHtml}
-        <h4 style="margin-top: 1.5rem;">Investors</h4>
-        ${loan.investors.length > 0 ?
-            loan.investors.map(inv => `<p>${inv.investor}: ₹${inv.amount.toLocaleString()} ${inv.paymentId ? '<small style="color: #666;">(Razorpay)</small>' : ''}</p>`).join('') :
-            '<p>No investors yet</p>'
-        }
-        ${currentUser && currentUser.username !== loan.borrower && loan.status === 'active' ?
-            `<button class="btn btn-accent invest-btn" data-id="${loan.id}" style="margin-top: 1.5rem;">Invest in this Loan</button>` : ''}
-    `;
-
-    document.getElementById('loan-detail-modal').style.display = 'flex';
-
-    const investBtn = document.querySelector('#loan-detail-content .invest-btn');
-    if (investBtn) {
-        investBtn.addEventListener('click', function () {
-            document.getElementById('loan-detail-modal').style.display = 'none';
-            showInvestModal(loanId);
-        });
-    }
-}
-
-function showInvestModal(loanId) {
-    const loan = loans.find(l => l.id === loanId);
-    if (!loan) return;
-
-    if (currentUser && currentUser.username === loan.borrower) {
-        showNotification("You cannot invest in your own loan");
-        return;
-    }
-
-    const remaining = loan.amount - loan.funded;
-    const investAmount = document.getElementById('invest-amount');
-    if (investAmount) {
-        investAmount.value = '';
-        investAmount.setAttribute('max', remaining);
-        investAmount.setAttribute('placeholder', `Max: ₹${remaining.toLocaleString()}`);
-    }
-
-    document.getElementById('invest-loan-purpose').textContent = `Purpose: ${loan.purpose}`;
-    document.getElementById('invest-loan-amount').textContent = `Total Amount: ₹${loan.amount.toLocaleString()}`;
-    document.getElementById('invest-loan-term').textContent = `Term: ${loan.term} months`;
-    document.getElementById('invest-monthly-payment').textContent = `Monthly Payment: ₹${loan.monthlyPayment.toLocaleString()}`;
-
-    document.getElementById('invest-form').setAttribute('data-loan-id', loanId);
-    document.getElementById('invest-modal').style.display = 'flex';
-}
-
-function renderUserDashboard() {
-    if (!currentUser) return;
-
-    const userLoansContainer = document.getElementById('user-loans-container');
-    const userInvestmentsContainer = document.getElementById('user-investments-container');
-    const userProfileContainer = document.getElementById('user-profile-container');
-
-    const userLoans = loans.filter(loan => loan.borrower === currentUser.username);
-    userLoansContainer.innerHTML = '';
-
-    if (userLoans.length === 0) {
-        userLoansContainer.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">You have no active loans.</p>';
-    } else {
-        userLoans.forEach(loan => {
-            const progress = (loan.funded / loan.amount) * 100;
-            const totalRepayment = loan.monthlyPayment * loan.term;
-            const element = document.createElement('div');
-            element.className = 'loan-request';
-            element.innerHTML = `
-                <h4>${loan.purpose}</h4>
-                <p><strong>Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
-                <p><strong>Funded:</strong> ${progress.toFixed(1)}%</p>
-                <p><strong>Term:</strong> ${loan.term} months</p>
-                <p><strong>Monthly Payment:</strong> ₹${loan.monthlyPayment.toLocaleString()}</p>
-                <p><strong>Total Repayment:</strong> ₹${totalRepayment.toLocaleString()}</p>
-                <p><strong>Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
-                <p><strong>Documents:</strong> ${loan.documents ?
-                    '<span style="color: #2ecc71;"><i class="fas fa-check-circle"></i> Uploaded</span>' :
-                    '<span style="color: #e74c3c;"><i class="fas fa-times-circle"></i> Pending</span>'}
-                </p>
-                <div class="progress-bar">
-                    <div class="progress" style="width: ${progress}%"></div>
-                </div>
-                <button class="btn btn-primary view-loan" data-id="${loan.id}" style="margin-top: 15px;">View Details</button>
-            `;
-            userLoansContainer.appendChild(element);
-        });
-
-        userLoansContainer.querySelectorAll('.view-loan').forEach(button => {
-            button.addEventListener('click', function () {
-                const loanId = parseInt(this.getAttribute('data-id'));
-                showLoanDetails(loanId);
-            });
-        });
-    }
-
-    const userInvestments = investments.filter(inv => inv.investor === currentUser.username);
-    userInvestmentsContainer.innerHTML = '';
-
-    if (userInvestments.length === 0) {
-        userInvestmentsContainer.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">You have no investments.</p>';
-    } else {
-        userInvestments.forEach(investment => {
-            const loan = loans.find(l => l.id === investment.loanId);
-            if (!loan) return;
-            const element = document.createElement('div');
-            element.className = 'investment-opportunity';
-            element.innerHTML = `
-                <h4>${loan.purpose} by ${loan.borrower}</h4>
-                <p><strong>Invested Amount:</strong> ₹${investment.amount.toLocaleString()}</p>
-                <p><strong>Expected Return:</strong> ₹${investment.expectedReturn.toLocaleString()}</p>
-                <p><strong>Payment Method:</strong> ${investment.paymentMethod || 'Wallet'}</p>
-                ${investment.paymentId ? `<p><small>Payment ID: ${investment.paymentId}</small></p>` : ''}
-                <p><strong>Borrower KYC:</strong> ${loan.documents ?
-                    '<span style="color: #2ecc71;">Verified</span>' :
-                    '<span style="color: #e74c3c;">Pending</span>'}
-                </p>
-                <p><strong>Status:</strong> <span style="color: ${investment.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${investment.status}</span></p>
-                <button class="btn btn-primary view-investment" data-id="${investment.id}">View Details</button>
-            `;
-            userInvestmentsContainer.appendChild(element);
-        });
-
-        userInvestmentsContainer.querySelectorAll('.view-investment').forEach(button => {
-            button.addEventListener('click', function () {
-                const investmentId = parseInt(this.getAttribute('data-id'));
-                showInvestmentDetails(investmentId);
-            });
-        });
-    }
-
-    const totalInvested = userInvestments.reduce((sum, inv) => sum + inv.amount, 0);
-    const totalBorrowed = userLoans.reduce((sum, loan) => sum + loan.amount, 0);
-    const kycBadge = currentUser.kycStatus === 'verified' ?
-        '<span class="kyc-badge kyc-verified"><i class="fas fa-check-circle"></i> KYC Verified</span>' :
-        '<span class="kyc-badge kyc-pending"><i class="fas fa-clock"></i> KYC Pending</span>';
-
-    userProfileContainer.innerHTML = `
-        <div class="loan-details">
-            <p><strong>Username:</strong> ${currentUser.username}</p>
-            <p><strong>Email:</strong> ${currentUser.email}</p>
-            <p><strong>Account Balance:</strong> ₹${currentUser.balance.toLocaleString()}</p>
-            <p><strong>Active Loans:</strong> ${userLoans.length} (₹${totalBorrowed.toLocaleString()})</p>
-            <p><strong>Active Investments:</strong> ${userInvestments.length} (₹${totalInvested.toLocaleString()})</p>
-            <p><strong>KYC Status:</strong> ${kycBadge}</p>
-            <p><strong>Documents:</strong> ${currentUser.documents ? currentUser.documents.length : 0}</p>
-        </div>
-        <div style="margin-top: 1.5rem;">
-            <button class="btn btn-danger" id="logout-btn">Logout</button>
-        </div>
-    `;
-
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', function () {
-            currentUser = null;
-            localStorage.removeItem('friendlend_currentUser');
-            localStorage.removeItem('friendlend_rememberMe');
-            document.getElementById('login-btn').textContent = 'Login';
-            document.getElementById('user-dashboard').style.display = 'none';
-            showSection('home');
-            showNotification('Logged out successfully');
-        });
-    }
-}
-
-// Render user documents
-function renderUserDocuments() {
-    const container = document.getElementById('user-documents-container');
-    if (!container || !currentUser) return;
-
-    const userLoans = loans.filter(loan => loan.borrower === currentUser.username && loan.documents);
-
-    if (userLoans.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 2rem; color: #666;">No documents uploaded yet.</p>';
-        return;
-    }
-
-    let html = '<div class="document-viewer">';
-
-    userLoans.forEach(loan => {
-        if (loan.documents) {
-            html += `
-                <div style="background: #f8f9fa; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
-                    <h4 style="margin: 0 0 1rem 0; color: #2c3e50;">Loan: ${loan.purpose} (₹${loan.amount.toLocaleString()})</h4>
-                    
-                    <div class="document-item">
-                        <i class="fas fa-id-card" style="color: #3498db;"></i>
-                        <div class="document-info">
-                            <div class="document-name">Aadhaar Card</div>
-                            <div class="document-meta">${loan.documents.aadhaar.name}</div>
-                        </div>
-                        <button onclick="openDocumentInBrowser('aadhaar', ${loan.id})" style="background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
-                            <i class="fas fa-external-link-alt"></i> View in Browser
-                        </button>
-                    </div>
-                    
-                    <div class="document-item">
-                        <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
-                        <div class="document-info">
-                            <div class="document-name">Signed Undertaking</div>
-                            <div class="document-meta">${loan.documents.undertaking.name}</div>
-                        </div>
-                        <button onclick="openDocumentInBrowser('undertaking', ${loan.id})" style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer;">
-                            <i class="fas fa-external-link-alt"></i> View in Browser
-                        </button>
-                    </div>
-                    
-                </div>
-            `;
-        }
-    });
-
-    html += '</div>';
-    container.innerHTML = html;
-}
-
+// Start real-time updates
 function startRealTimeUpdates() {
-    updateInterval = setInterval(() => {
-        loans = JSON.parse(localStorage.getItem('friendlend_loans')) || [];
-        investments = JSON.parse(localStorage.getItem('friendlend_investments')) || [];
-
+    updateInterval = setInterval(async () => {
         if (document.getElementById('dashboard').style.display !== 'none' ||
             document.getElementById('home').style.display !== 'none') {
-            renderLoanRequests();
-            renderInvestmentOpportunities();
+            await renderLoanRequests();
+            await renderInvestmentOpportunities();
         }
 
-        if (document.getElementById('user-dashboard').style.display === 'block') {
-            renderUserDashboard();
+        if (document.getElementById('user-dashboard').style.display === 'block' && currentUser) {
+            await renderUserDashboard();
         }
     }, 10000);
 }
 
+// Simulate real-time update
 function simulateRealTimeUpdate() {
     showNotification("Update sent to all users in real-time");
 }
 
-function showInvestmentDetails(investmentId) {
-    const investment = investments.find(inv => inv.id === investmentId);
-    if (!investment) return;
-
-    const loan = loans.find(l => l.id === investment.loanId);
-    if (!loan) return;
-
-    const totalReturn = investment.expectedReturn;
-    const profit = totalReturn - investment.amount;
-    const roi = (profit / investment.amount) * 100;
-    const monthlyReturn = (totalReturn - investment.amount) / loan.term;
-
-    document.getElementById('loan-detail-title').textContent = `Investment Details: ${loan.purpose}`;
-    document.getElementById('loan-detail-content').innerHTML = `
-        <div class="loan-details">
-            <p><strong>Loan Purpose:</strong> ${loan.purpose}</p>
-            <p><strong>Borrower:</strong> ${loan.borrower}</p>
-            <p><strong>Investment Amount:</strong> ₹${investment.amount.toLocaleString()}</p>
-            <p><strong>Investment Date:</strong> ${investment.date}</p>
-            <p><strong>Payment Method:</strong> ${investment.paymentMethod || 'Wallet'}</p>
-            ${investment.paymentId ? `<p><strong>Payment ID:</strong> ${investment.paymentId}</p>` : ''}
-            <p><strong>Loan Term:</strong> ${loan.term} months</p>
-            <p><strong>Interest Rate:</strong> ${loan.interest}% per annum</p>
-            <p><strong>Expected Total Return:</strong> ₹${totalReturn.toLocaleString()}</p>
-            <p><strong>Expected Profit:</strong> ₹${profit.toLocaleString()}</p>
-            <p><strong>ROI:</strong> ${roi.toFixed(2)}%</p>
-            <p><strong>Monthly Return:</strong> ₹${monthlyReturn.toLocaleString()}</p>
-            <p><strong>Borrower KYC:</strong> ${loan.documents ?
-            '<span style="color: #2ecc71;">Verified</span>' :
-            '<span style="color: #e74c3c;">Pending</span>'}
-            </p>
-            <p><strong>Status:</strong> <span style="color: ${investment.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${investment.status}</span></p>
-        </div>
-        <h4 style="margin-top: 1.5rem;">Loan Details</h4>
-        <div class="loan-details">
-            <p><strong>Total Loan Amount:</strong> ₹${loan.amount.toLocaleString()}</p>
-            <p><strong>Amount Funded:</strong> ₹${loan.funded.toLocaleString()} (${((loan.funded / loan.amount) * 100).toFixed(1)}%)</p>
-            <p><strong>Monthly Payment:</strong> ₹${loan.monthlyPayment.toLocaleString()}</p>
-            <p><strong>Loan Status:</strong> <span style="color: ${loan.status === 'active' ? '#2ecc71' : '#3498db'}; font-weight: 500;">${loan.status}</span></p>
-        </div>
-    `;
-
-    document.getElementById('loan-detail-modal').style.display = 'flex';
-}
+// Make functions global for onclick handlers
+window.removeFile = removeFile;
+window.openDocumentInBrowser = function(url) {
+    window.open(url, '_blank');
+};
