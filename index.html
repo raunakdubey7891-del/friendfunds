@@ -493,36 +493,28 @@
                 <div class="tab-content active" id="borrowed-tab">
                     <div class="card">
                         <h3><i class="fas fa-hand-holding-usd"></i> Your Active Loans</h3>
-                        <div class="loan-list" id="user-loans-container">
-                            <!-- User's active loans will be displayed here -->
-                        </div>
+                        <div class="loan-list" id="user-loans-container"></div>
                     </div>
                 </div>
                 
                 <div class="tab-content" id="lent-tab">
                     <div class="card">
                         <h3><i class="fas fa-chart-line"></i> Your Investments</h3>
-                        <div class="loan-list" id="user-investments-container">
-                            <!-- User's investments will be displayed here -->
-                        </div>
+                        <div class="loan-list" id="user-investments-container"></div>
                     </div>
                 </div>
                 
                 <div class="tab-content" id="profile-tab">
                     <div class="card">
                         <h3><i class="fas fa-user"></i> Your Profile</h3>
-                        <div id="user-profile-container">
-                            <!-- User's profile will be displayed here -->
-                        </div>
+                        <div id="user-profile-container"></div>
                     </div>
                 </div>
 
                 <div class="tab-content" id="documents-tab">
                     <div class="card">
                         <h3><i class="fas fa-file-alt"></i> Your Uploaded Documents</h3>
-                        <div id="user-documents-container">
-                            <!-- User's documents will be displayed here -->
-                        </div>
+                        <div id="user-documents-container"></div>
                     </div>
                 </div>
             </div>
@@ -538,7 +530,7 @@
                 </div>
                 <div class="footer-section">
                     <h3>Contact Us</h3>
-                    <p><i class="fas fa-envelope"></i>  friendfunds@gmail.com</p>
+                    <p><i class="fas fa-envelope"></i> support@friendfunds.in</p>
                     <p><i class="fas fa-phone"></i> +91-855-595-3499</p>
                 </div>
                 <div class="footer-section">
@@ -649,13 +641,11 @@
                 <h3 id="loan-detail-title">Loan Details</h3>
                 <span class="close">&times;</span>
             </div>
-            <div id="loan-detail-content">
-                <!-- Loan details will be displayed here -->
-            </div>
+            <div id="loan-detail-content"></div>
         </div>
     </div>
 
-    <!-- Invest Modal with Razorpay -->
+    <!-- Invest Modal -->
     <div class="modal" id="invest-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -702,13 +692,11 @@
                 <h3 id="document-viewer-title">Document Viewer</h3>
                 <span class="close" id="close-document-viewer">&times;</span>
             </div>
-            <div id="document-viewer-content" style="padding: 1.5rem; text-align: center;">
-                <!-- Document will be displayed here -->
-            </div>
+            <div id="document-viewer-content" style="padding: 1.5rem; text-align: center;"></div>
         </div>
     </div>
 
-    <!-- Loan Agreement Modal with Document Upload -->
+    <!-- Loan Agreement Modal -->
     <div class="modal" id="loan-agreement-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -722,13 +710,11 @@
                 <input type="hidden" id="agreement-term">
                 <input type="hidden" id="agreement-monthly-payment">
                 
-                <!-- Document Upload Section -->
                 <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1.2rem;">
                     <h4 style="margin: 0 0 1rem 0; color: #2c3e50; font-size: 1.1rem;">
                         <i class="fas fa-id-card"></i> Document Upload
                     </h4>
                     
-                    <!-- Aadhaar Upload -->
                     <div style="margin-bottom: 1rem;">
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.95rem;">
                             <i class="fas fa-id-card" style="color: #3498db;"></i> Aadhaar Card <span style="color: red;">*</span>
@@ -743,7 +729,6 @@
                         </div>
                     </div>
 
-                    <!-- Signed Undertaking Upload -->
                     <div>
                         <label style="display: block; margin-bottom: 0.5rem; font-weight: 500; font-size: 0.95rem;">
                             <i class="fas fa-file-signature" style="color: #e74c3c;"></i> Signed Undertaking <span style="color: red;">*</span>
@@ -759,8 +744,6 @@
                     </div>
                 </div>
 
-
-                <!-- Loan Summary - Compact -->
                 <div style="background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 0.8rem 1rem; border-radius: 8px; margin-bottom: 1.2rem;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div>
@@ -782,7 +765,6 @@
                     </div>
                 </div>
 
-                <!-- Terms and Conditions -->
                 <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; margin-bottom: 1.2rem; overflow: hidden;">
                     <div style="background: #e9ecef; padding: 0.6rem 1rem; border-bottom: 1px solid #dee2e6;">
                         <h4 style="margin: 0; font-size: 1rem; color: #2c3e50;">
@@ -799,7 +781,6 @@
                     </div>
                 </div>
 
-                <!-- Agreement Checkbox -->
                 <div style="margin-bottom: 1.2rem; display: flex; align-items: flex-start; gap: 10px;">
                     <input type="checkbox" id="agree-terms" required style="width: 18px; height: 18px; margin-top: 2px; flex-shrink: 0;">
                     <label for="agree-terms" style="font-size: 0.85rem; line-height: 1.4; margin-bottom: 0;">
@@ -807,7 +788,6 @@
                     </label>
                 </div>
 
-                <!-- Buttons -->
                 <div style="display: flex; gap: 10px; position: sticky; bottom: 0; background: white; padding-top: 0.5rem; border-top: 1px solid #eee;">
                     <button type="button" class="btn" id="cancel-agreement" style="flex: 1; background: #95a5a6; padding: 12px;">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="submit-agreement" style="flex: 2; padding: 12px;">Submit with Documents</button>
@@ -825,13 +805,10 @@
             </div>
             <div style="padding: 1.5rem; text-align: center;">
                 <i class="fas fa-check-circle" style="font-size: 4rem; color: #2ecc71; margin-bottom: 1rem;"></i>
-                <h4 style="margin: 0 0 0.5rem 0;">Documents Uploaded</h4>
-                <p style="margin: 0 0 1.5rem 0; color: #666; font-size: 0.9rem;">Your loan request has been submitted with KYC documents.</p>
+                <h4 style="margin: 0 0 0.5rem 0;">Documents Uploaded to Supabase</h4>
+                <p style="margin: 0 0 1.5rem 0; color: #666; font-size: 0.9rem;">Your loan request has been submitted with KYC documents stored securely in the cloud.</p>
                 
-                <!-- Document Summary -->
-                <div style="background: #f8f9fa; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; text-align: left;" id="success-document-summary">
-                    <!-- Dynamic content will be inserted here -->
-                </div>
+                <div style="background: #f8f9fa; border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; text-align: left;" id="success-document-summary"></div>
                 
                 <button class="btn btn-primary" id="success-ok-btn" style="width: 100%; padding: 12px;">OK</button>
             </div>
@@ -845,6 +822,8 @@
 
     <!-- Razorpay Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-    <script src="script.js"></script>
+
+    <!-- ⚠️  script.js uses ES module import for Supabase — must be type="module" -->
+    <script type="module" src="script.js"></script>
 </body>
 </html>
