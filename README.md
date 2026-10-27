@@ -147,7 +147,7 @@ npx serve .
 
 Open the local URL shown in your terminal.
 
-> ⚠️ Add your own Supabase and Razorpay keys in `script.js` to enable storage and payments. Never expose secret keys in client-side code.
+
 
 ---
 
