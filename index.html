@@ -378,6 +378,8 @@
             background: #287aa8;
         }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="theme.css">
 </head>
 <body>
     <header>
@@ -402,11 +404,18 @@
     <main id="main-content">
         <section class="hero" id="home">
             <div class="container">
+                <div class="hero-badge"><b></b> Trusted peer-to-peer lending · KYC verified</div>
                 <h1>Lend and Borrow with Friends</h1>
                 <p>A systematic way to manage loans among friends with fixed 8% interest and monthly installments</p>
                 <div class="hero-buttons">
                     <a href="#" class="btn btn-primary" id="get-started-btn">Get Started</a>
                     <a href="#" class="btn btn-accent" id="learn-more-btn">How It Works</a>
+                </div>
+                <div class="hero-stats">
+                    <div><strong data-n="8" data-s="%">0</strong><span>Fixed Interest</span></div>
+                    <div><strong data-n="24" data-s="mo">0</strong><span>Max Tenure</span></div>
+                    <div><strong>100%</strong><span>KYC Verified</span></div>
+                    <div><strong>UPI</strong><span>Razorpay Secure</span></div>
                 </div>
             </div>
         </section>
@@ -825,5 +834,11 @@
 
     <!-- ⚠️  script.js uses ES module import for Supabase — must be type="module" -->
     <script type="module" src="script.js"></script>
+    <script src="anim.js"></script>
+<script>
+(function(){var io=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){x.target.classList.add('in');io.unobserve(x.target)}})},{threshold:.12});
+document.querySelectorAll('.feature-card,.section-title,.dashboard .card').forEach(function(el,i){el.classList.add('reveal');el.style.transitionDelay=(i%3)*90+'ms';io.observe(el)});
+document.querySelectorAll('[data-n]').forEach(function(el){var n=+el.dataset.n,c=0,t=setInterval(function(){c++;el.textContent=c+el.dataset.s;if(c>=n)clearInterval(t)},60)})})();
+</script>
 </body>
 </html>

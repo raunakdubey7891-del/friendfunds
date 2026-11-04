@@ -1,0 +1,133 @@
+/* FriendFunds — clean, light, premium fintech theme */
+:root{
+  --primary:#00b386; --primary-dark:#009a73; --secondary:#5367ff; --secondary-dark:#3f51e0;
+  --accent:#5367ff; --accent-dark:#3f51e0; --danger:#f0556a; --danger-dark:#d63d52;
+  --dark:#0b1b3a; --darker:#071329; --light:#eef2f9; --lighter:#f6f8fc;
+  --ink:#0b1b3a; --mut:#5b6b8a; --line:#e3e9f4;
+  --shadow:0 1px 2px rgba(11,27,58,.04),0 10px 30px rgba(11,27,58,.07);
+  --shadow-hover:0 2px 4px rgba(11,27,58,.05),0 24px 50px rgba(11,27,58,.14);
+}
+*{font-family:'Inter',sans-serif}
+h1,h2,h3,h4,.logo,.btn,.tab,.hero-stats strong{font-family:'Sora','Inter',sans-serif}
+body{background:var(--lighter);color:var(--ink);overflow-x:hidden}
+body:before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:radial-gradient(45vw 45vw at 8% -5%,rgba(0,179,134,.16),transparent 60%),radial-gradient(45vw 45vw at 95% 5%,rgba(83,103,255,.16),transparent 60%),radial-gradient(40vw 40vw at 60% 100%,rgba(255,180,84,.14),transparent 60%);
+  animation:aurora 16s ease-in-out infinite alternate;background-size:130% 130%}
+@keyframes aurora{to{background-position:100% 50%}}
+p,small,label{color:var(--mut)}
+::-webkit-scrollbar{width:7px}::-webkit-scrollbar-thumb{background:#c6d0e6;border-radius:8px}
+
+/* header */
+header{background:rgba(255,255,255,.8)!important;backdrop-filter:blur(16px);border-bottom:1px solid var(--line);box-shadow:0 4px 24px rgba(11,27,58,.05);color:var(--ink);animation:drop .8s cubic-bezier(.2,.8,.2,1) both}
+@keyframes drop{from{transform:translateY(-100%);opacity:0}}
+.logo{color:var(--ink);font-size:1.45rem;font-weight:800;letter-spacing:-.02em}
+.logo i{color:var(--primary);animation:bob 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(-4px) rotate(-8deg)}}
+.nav-links a:not(.btn){color:var(--ink);font-weight:500}.nav-links a:not(.btn):hover{color:var(--primary)}
+.menu-toggle{color:var(--ink)}
+.nav-links.active{background:#fff!important;box-shadow:0 20px 40px rgba(11,27,58,.12)}
+
+/* buttons */
+.btn{position:relative;overflow:hidden;border-radius:999px!important;border:0!important;font-weight:600;padding:12px 28px;
+  background:var(--ink)!important;color:#fff!important;transition:transform .25s,box-shadow .25s}
+.btn:after{content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg)}
+.btn:hover:after{left:140%;transition:left .8s}
+.btn:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(11,27,58,.25)}
+.btn-primary{background:linear-gradient(135deg,#00b386,#00c9a0)!important;box-shadow:0 10px 26px rgba(0,179,134,.35)}
+.btn-primary:hover{box-shadow:0 16px 36px rgba(0,179,134,.5)}
+.btn-accent{background:linear-gradient(135deg,#5367ff,#7b8cff)!important;box-shadow:0 10px 26px rgba(83,103,255,.3)}
+.btn-danger{background:var(--danger)!important}
+#get-started-btn{animation:glow 2.6s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 12px 44px rgba(0,179,134,.6)}}
+#loan-agreement-modal #cancel-agreement{background:#e9eef7!important;color:var(--ink)!important}
+
+/* hero */
+.hero{background:transparent!important;text-align:center;padding:8rem 0 4.5rem;position:relative;overflow:visible}
+.hero:before,.hero:after{display:none}
+.hero-badge{display:inline-flex;gap:.6rem;align-items:center;padding:.5rem 1.1rem;border:1px solid var(--line);border-radius:99px;background:#fff;box-shadow:var(--shadow);font-size:.82rem;font-weight:500;color:var(--ink);margin-bottom:1.6rem}
+.hero-badge b{width:8px;height:8px;border-radius:50%;background:var(--primary);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(0,179,134,.5)}100%{box-shadow:0 0 0 10px rgba(0,179,134,0)}}
+.hero h1{font-size:clamp(2.2rem,6vw,4.2rem);font-weight:800;line-height:1.1;letter-spacing:-.035em;color:var(--ink);text-shadow:none}
+.hero h1 .w{display:inline-block;opacity:0;transform:translateY(40px) rotate(4deg);animation:rise .9s cubic-bezier(.2,.8,.2,1) forwards}
+.hero h1 .w:nth-last-child(-n+2){background:linear-gradient(90deg,#00b386,#5367ff,#00b386);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:rise .9s cubic-bezier(.2,.8,.2,1) forwards,flow 4s linear infinite}
+@keyframes rise{to{opacity:1;transform:none}}
+@keyframes flow{to{background-position:-200% 0}}
+.hero p{color:var(--mut)!important;font-size:1.15rem;max-width:620px;margin:1.3rem auto 2.2rem}
+.hero p,.hero-buttons,.hero-badge,.hero-stats{opacity:0;animation:rise 1s .9s cubic-bezier(.2,.8,.2,1) forwards}
+.hero-badge{animation-delay:.1s}.hero-buttons{animation-delay:1.1s}.hero-stats{animation-delay:1.3s}
+.hero-buttons{justify-content:center}
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);max-width:860px;margin:4rem auto 0;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow-hover);overflow:hidden}
+.hero-stats div{padding:1.6rem 1rem;text-align:center;border-right:1px solid var(--line);background:none}
+.hero-stats div:last-child{border:0}
+.hero-stats strong{display:block;font-size:2rem;font-weight:800;color:var(--ink)}
+.hero-stats div:nth-child(odd) strong{color:var(--primary)}
+.hero-stats span{font-size:.75rem;color:var(--mut);text-transform:uppercase;letter-spacing:.12em}
+
+/* floating coins */
+.coin{position:absolute;z-index:-1;border-radius:50%;display:grid;place-items:center;font-family:'Sora';font-weight:700;color:#fff7e0;
+  background:radial-gradient(circle at 30% 30%,#ffe29a,#ffb347 55%,#e8891f);box-shadow:0 14px 30px rgba(255,170,60,.4),inset 0 -6px 10px rgba(0,0,0,.12);
+  animation:float var(--d,7s) ease-in-out infinite;animation-delay:var(--l,0s)}
+.coin.v{background:radial-gradient(circle at 30% 30%,#c9d0ff,#5367ff 60%,#3a4bd8);box-shadow:0 14px 30px rgba(83,103,255,.4);color:#fff}
+.coin.m{background:radial-gradient(circle at 30% 30%,#b9f5e4,#00b386 60%,#008a68);box-shadow:0 14px 30px rgba(0,179,134,.4);color:#fff}
+@keyframes float{0%,100%{translate:0 0;rotate:-8deg}50%{translate:0 -28px;rotate:10deg}}
+
+/* sections */
+.features,.dashboard,.user-dashboard{background:transparent!important}
+.section-title{color:var(--ink)!important;font-weight:800;letter-spacing:-.02em;font-size:clamp(1.7rem,3.5vw,2.5rem)}
+.section-title:after{background:linear-gradient(90deg,#00b386,#5367ff)!important;width:0!important;transition:width 1s .3s}
+.section-title.in:after{width:80px!important}
+.card,.feature-card,.loan-request,.investment-opportunity,.payment-item{background:#fff!important;border:1px solid var(--line)!important;border-radius:20px!important;box-shadow:var(--shadow)!important;color:var(--ink)}
+.card,.feature-card{position:relative;padding:1.8rem!important;transition:transform .25s ease,box-shadow .3s,border-color .3s;will-change:transform}
+.feature-card{padding:2.4rem 2rem!important;overflow:hidden;counter-increment:step}
+.features-grid{counter-reset:step}
+.feature-card:after{content:"0" counter(step);position:absolute;right:1.2rem;top:.6rem;font:800 3.6rem 'Sora';color:rgba(11,27,58,.05)}
+.card:before{display:none}
+.card:hover,.feature-card:hover,.loan-request:hover,.investment-opportunity:hover{box-shadow:var(--shadow-hover)!important;border-color:rgba(0,179,134,.4)!important}
+.card h3,.feature-card h3,.modal-header h3{color:var(--ink)!important;font-weight:700}
+.card h3 i{color:var(--primary)!important;transition:.3s}.card:hover h3 i{transform:scale(1.25) rotate(-8deg)}
+.feature-card i{font-size:1.6rem!important;width:60px;height:60px;display:inline-grid;place-items:center;border-radius:16px;color:var(--primary)!important;
+  background:linear-gradient(135deg,rgba(0,179,134,.14),rgba(83,103,255,.14));animation:bob 4s ease-in-out infinite}
+.feature-card:nth-child(2) i{animation-delay:.6s;color:var(--secondary)!important}.feature-card:nth-child(3) i{animation-delay:1.2s}
+.feature-card:hover i{animation:wiggle .6s}
+@keyframes wiggle{25%{transform:rotate(-14deg) scale(1.1)}75%{transform:rotate(14deg) scale(1.1)}}
+.loan-request,.investment-opportunity{animation:rise .6s both}
+.progress{background:#e8eef8!important;border-radius:20px}
+.progress-bar{background:linear-gradient(90deg,#00b386,#5367ff,#00b386)!important;background-size:200% 100%;animation:flow 3s linear infinite}
+.real-time-indicator{background:var(--primary)!important;box-shadow:0 0 0 4px rgba(0,179,134,.2)}
+
+/* forms, tabs, modals */
+.form-control{background:#f6f8fc!important;border:1.5px solid var(--line)!important;border-radius:12px!important;color:var(--ink)!important;transition:.25s}
+.form-control:focus{background:#fff!important;border-color:var(--primary)!important;box-shadow:0 0 0 4px rgba(0,179,134,.15)!important;outline:0;transform:translateY(-1px)}
+.form-group label{color:var(--ink)!important;font-weight:500}
+.tabs{border-bottom:1px solid var(--line)!important}
+.tab{color:var(--mut)!important;font-weight:600}.tab:hover,.tab.active{color:var(--primary)!important;border-color:var(--primary)!important}
+.modal{background:rgba(11,27,58,.55)!important;backdrop-filter:blur(6px)}
+.modal-content{background:#fff!important;border-radius:22px!important;border:0!important;box-shadow:0 40px 90px rgba(11,27,58,.35)!important;color:var(--ink)}
+.modal-header{border-bottom:1px solid var(--line)!important}
+.close{color:var(--mut)!important;background:transparent!important}.close:hover{color:var(--danger)!important}
+.modal[style*="flex"] .modal-content{animation:pop .45s cubic-bezier(.2,1.2,.3,1)}
+@keyframes pop{from{opacity:0;transform:scale(.85) translateY(30px)}}
+.file-upload-area{border:2px dashed #b9c6e2!important;border-radius:14px!important;background:#f6f8fc!important}
+.file-upload-area:hover{border-color:var(--primary)!important;background:rgba(0,179,134,.06)!important}
+.file-upload-area.has-file{border-color:var(--primary)!important;background:rgba(0,179,134,.1)!important}
+.payment-method{border:2px solid var(--line)!important;border-radius:14px!important;background:#fff!important}
+.payment-method.selected,.payment-method:hover{border-color:var(--primary)!important}
+.razorpay-button{background:linear-gradient(135deg,#5367ff,#7b8cff)!important;border-radius:999px!important;box-shadow:0 10px 26px rgba(83,103,255,.35)}
+[style*="linear-gradient(135deg, #3498db"]{background:linear-gradient(135deg,#0b1b3a,#24407a)!important;border-radius:14px!important}
+.kyc-verified{background:rgba(0,179,134,.12)!important;color:#007a5b!important}
+.kyc-pending{background:rgba(255,180,84,.2)!important;color:#9a5b00!important}
+
+/* footer, notification */
+footer{background:var(--ink)!important;color:#c9d3ea;margin-top:4rem}
+footer h3{color:#fff!important}footer p,footer .footer-section p{color:#9fb0d3}
+.socials a{background:rgba(255,255,255,.08)!important;color:#fff!important}.socials a:hover{background:var(--primary)!important;transform:translateY(-3px)}
+.notification{background:#fff!important;color:var(--ink)!important;border-left:4px solid var(--primary);box-shadow:0 20px 50px rgba(11,27,58,.2)}
+
+/* motion helpers */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .8s ease,transform .8s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+#sp{position:fixed;top:0;left:0;height:3px;width:0;z-index:2000;background:linear-gradient(90deg,#00b386,#5367ff,#ffb454)}
+#cg{position:fixed;width:420px;height:420px;margin:-210px 0 0 -210px;border-radius:50%;pointer-events:none;z-index:-1;background:radial-gradient(circle,rgba(0,179,134,.13),transparent 65%);transition:transform .15s ease-out}
+@media(hover:none){#cg{display:none}}
+@media(max-width:700px){.hero-stats{grid-template-columns:repeat(2,1fr)}.hero-stats div:nth-child(2){border-right:0}.hero-stats div{border-bottom:1px solid var(--line)}.hero{padding:6rem 0 3rem}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}.reveal,.hero p,.hero-buttons,.hero-badge,.hero-stats,.hero h1 .w{opacity:1;transform:none}}
