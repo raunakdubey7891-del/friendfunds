@@ -131,3 +131,44 @@ footer h3{color:#fff!important}footer p,footer .footer-section p{color:#9fb0d3}
 @media(hover:none){#cg{display:none}}
 @media(max-width:700px){.hero-stats{grid-template-columns:repeat(2,1fr)}.hero-stats div:nth-child(2){border-right:0}.hero-stats div{border-bottom:1px solid var(--line)}.hero{padding:6rem 0 3rem}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important}.reveal,.hero p,.hero-buttons,.hero-badge,.hero-stats,.hero h1 .w{opacity:1;transform:none}}
+
+/* ===== Dark mode (toggle in navbar, remembered) ===== */
+#theme-toggle{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;display:grid;place-items:center;font-size:1rem;transition:.3s;position:relative;overflow:hidden}
+#theme-toggle:hover{transform:rotate(25deg) scale(1.1);box-shadow:0 8px 20px rgba(11,27,58,.2)}
+#theme-toggle i{position:absolute;transition:transform .5s cubic-bezier(.2,1.2,.3,1),opacity .3s}
+#theme-toggle .fa-sun{transform:translateY(40px) rotate(-90deg);opacity:0}
+[data-theme=dark] #theme-toggle .fa-sun{transform:none;opacity:1}
+[data-theme=dark] #theme-toggle .fa-moon{transform:translateY(-40px) rotate(90deg);opacity:0}
+.nav-links li.tt{display:flex;align-items:center}
+body,header,.card,.feature-card,.modal-content,.form-control{transition:background-color .5s,color .5s,border-color .5s}
+
+[data-theme=dark]{--ink:#eaf0ff;--mut:#9aa8c7;--line:#243252;--lighter:#0a1224;--light:#121c33;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);--shadow-hover:0 2px 4px rgba(0,0,0,.4),0 24px 50px rgba(0,0,0,.55);color-scheme:dark}
+[data-theme=dark] body:before{background:radial-gradient(45vw 45vw at 8% -5%,rgba(0,179,134,.2),transparent 60%),radial-gradient(45vw 45vw at 95% 5%,rgba(83,103,255,.22),transparent 60%),radial-gradient(40vw 40vw at 60% 100%,rgba(255,180,84,.08),transparent 60%),#0a1224;background-size:130% 130%}
+[data-theme=dark] header{background:rgba(10,18,36,.8)!important;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+[data-theme=dark] .nav-links.active{background:#101a33!important}
+[data-theme=dark] #theme-toggle,[data-theme=dark] .hero-badge,[data-theme=dark] .hero-stats,[data-theme=dark] .card,[data-theme=dark] .feature-card,
+[data-theme=dark] .loan-request,[data-theme=dark] .investment-opportunity,[data-theme=dark] .payment-item,[data-theme=dark] .payment-method,[data-theme=dark] .notification{background:#111c36!important;color:var(--ink)!important}
+[data-theme=dark] .modal-content{background:#0f1830!important}
+[data-theme=dark] .modal{background:rgba(2,6,16,.7)!important}
+[data-theme=dark] .form-control{background:#0a1224!important}
+[data-theme=dark] .form-control:focus{background:#0d1730!important}
+[data-theme=dark] .file-upload-area,[data-theme=dark] .document-viewer,[data-theme=dark] .loan-details{background:#0a1224!important;border-color:#2c3d63!important;color:var(--ink)!important}
+[data-theme=dark] .document-item{background:#111c36!important;border-color:var(--line)!important;color:var(--ink)}
+[data-theme=dark] .progress{background:#1b2a4a!important}
+[data-theme=dark] .btn{background:#eaf0ff!important;color:#0a1224!important}
+[data-theme=dark] .btn-primary{background:linear-gradient(135deg,#00b386,#00c9a0)!important;color:#fff!important}
+[data-theme=dark] .btn-accent{background:linear-gradient(135deg,#5367ff,#7b8cff)!important;color:#fff!important}
+[data-theme=dark] .btn-danger{background:var(--danger)!important;color:#fff!important}
+[data-theme=dark] #loan-agreement-modal #cancel-agreement{background:#243252!important;color:#eaf0ff!important}
+[data-theme=dark] .feature-card:after{color:rgba(255,255,255,.05)}
+[data-theme=dark] .hero h1{color:#fff}
+[data-theme=dark] .hero-stats div:nth-child(even) strong{color:#fff}
+[data-theme=dark] footer{background:#060b18!important;border-top:1px solid var(--line)}
+[data-theme=dark] .tab{color:var(--mut)!important}
+/* hard-coded light inline styles in modals */
+[data-theme=dark] [style*="background: #f8f9fa"],[data-theme=dark] [style*="background: white"],[data-theme=dark] [style*="background:white"],[data-theme=dark] [style*="background: #e9ecef"]{background:#0a1224!important;border-color:var(--line)!important}
+[data-theme=dark] [style*="border-top: 1px solid #eee"]{background:#0f1830!important;border-color:var(--line)!important}
+[data-theme=dark] [style*="color: #2c3e50"],[data-theme=dark] [style*="color: #666"],[data-theme=dark] [style*="color:#666"]{color:var(--ink)!important}
+[data-theme=dark] #signature-pad{background:#fff}
+[data-theme=dark] #cg{background:radial-gradient(circle,rgba(83,103,255,.2),transparent 65%)}
