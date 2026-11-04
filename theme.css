@@ -172,3 +172,6 @@ body,header,.card,.feature-card,.modal-content,.form-control{transition:backgrou
 [data-theme=dark] [style*="color: #2c3e50"],[data-theme=dark] [style*="color: #666"],[data-theme=dark] [style*="color:#666"]{color:var(--ink)!important}
 [data-theme=dark] #signature-pad{background:#fff}
 [data-theme=dark] #cg{background:radial-gradient(circle,rgba(83,103,255,.2),transparent 65%)}
+/* theme toggle: fixed lower-left */
+#theme-toggle{position:fixed;left:20px;bottom:20px;z-index:1500;width:50px;height:50px;box-shadow:0 10px 30px rgba(11,27,58,.25);animation:rise .8s 1.6s both}
+[data-theme=dark] #theme-toggle{box-shadow:0 10px 30px rgba(0,0,0,.6);border-color:#33466f}

@@ -17,11 +17,8 @@ c.style.transform='perspective(900px) rotateX('+((.5-py)*6)+'deg) rotateY('+((px
 document.addEventListener('mouseout',function(e){var c=e.target.closest&&e.target.closest('.card,.feature-card');if(c&&!c.contains(e.relatedTarget))c.style.transform=''});
 })();
 (function(){
-var ul=document.querySelector('.nav-links');if(!ul)return;
-var li=document.createElement('li');li.className='tt';
-li.innerHTML='<button id="theme-toggle" type="button" aria-label="Toggle dark mode"><i class="fas fa-moon"></i><i class="fas fa-sun"></i></button>';
-ul.insertBefore(li,ul.firstElementChild?ul.lastElementChild:null);
-li.querySelector('button').addEventListener('click',function(){
-var r=document.documentElement,n=r.getAttribute('data-theme')==='dark'?'light':'dark';
+var b=document.createElement('button');b.id='theme-toggle';b.type='button';b.setAttribute('aria-label','Toggle dark mode');
+b.innerHTML='<i class="fas fa-moon"></i><i class="fas fa-sun"></i>';document.body.appendChild(b);
+b.addEventListener('click',function(){var r=document.documentElement,n=r.getAttribute('data-theme')==='dark'?'light':'dark';
 r.setAttribute('data-theme',n);try{localStorage.setItem('ff-theme',n)}catch(e){}});
 })();
